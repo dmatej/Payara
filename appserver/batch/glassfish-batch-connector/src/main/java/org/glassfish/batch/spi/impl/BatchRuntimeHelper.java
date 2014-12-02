@@ -39,8 +39,17 @@
  */
 package org.glassfish.batch.spi.impl;
 
+import com.hazelcast.core.HazelcastInstance;
+import com.ibm.jbatch.container.servicesmanager.ServiceTypes;
 import com.ibm.jbatch.spi.*;
 import com.sun.enterprise.config.serverbeans.Config;
+
+import fish.payara.jbatch.persistence.rdbms.DB2PersistenceManager;
+import fish.payara.jbatch.persistence.rdbms.JBatchJDBCPersistenceManager;
+import fish.payara.jbatch.persistence.rdbms.MySqlPersistenceManager;
+import fish.payara.jbatch.persistence.rdbms.OraclePersistenceManager;
+import fish.payara.jbatch.persistence.rdbms.PostgresPersistenceManager;
+
 import org.glassfish.api.StartupRunLevel;
 import org.glassfish.api.admin.ServerEnvironment;
 import org.glassfish.api.event.EventListener;
@@ -63,17 +72,22 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+
 import java.net.URL;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.sql.DataSource;
+
 /**
- * Helper class to get values for Batch Runtime. Follows
- * zero-config rules by using default values when the
- * batch-runtime config object is not present in
+ * Helper class to get values for Batch Runtime. Follows zero-config rules by
+ * using default values when the batch-runtime config object is not present in
  * domain.xml
  *
  * @author Mahesh Kannan
@@ -82,6 +96,10 @@ import java.util.logging.Logger;
 @RunLevel(StartupRunLevel.VAL)
 public class BatchRuntimeHelper
         implements PostConstruct, EventListener {
+
+    public static final String PAYARA_TABLE_PREFIX_PROPERTY = "payara.jbatch.table.prefix";
+
+    public static final String PAYARA_TABLE_SUFFIX_PROPERTY = "payara.jbatch.table.suffix";
 
     @Inject
     ServiceLocator serviceLocator;
@@ -154,6 +172,14 @@ public class BatchRuntimeHelper
         BatchSPIManager batchSPIManager = BatchSPIManager.getInstance();
         batchSPIManager.registerExecutorServiceProvider(glassFishBatchExecutorServiceProvider);
         batchSPIManager.registerBatchSecurityHelper(glassFishBatchSecurityHelper);
+
+        Properties overrideProperties = new Properties();
+        overrideProperties.put(PAYARA_TABLE_PREFIX_PROPERTY, batchRuntimeConfiguration.getTablePrefix());
+        overrideProperties.put(PAYARA_TABLE_SUFFIX_PROPERTY, batchRuntimeConfiguration.getTableSuffix());
+
+        // uncomment when we incorporate the latest JBatch
+        overrideProperties.put(ServiceTypes.PERSISTENCE_MANAGEMENT_SERVICE, determinePersistenceManagerClass());
+        batchSPIManager.registerBatchContainerOverrideProperties(overrideProperties);
 
         try {
             DatabaseConfigurationBean databaseConfigurationBean = new GlassFishDatabaseConfigurationBean();
@@ -255,8 +281,55 @@ public class BatchRuntimeHelper
         return batchRuntimeConfiguration.getExecutorServiceLookupName();
     }
 
+    private String determinePersistenceManagerClass() {
+        String result = JBatchJDBCPersistenceManager.class.getName();
+        try {
+            // this is the default
+            String dataSourceName = getDataSourceLookupName();
+            InitialContext ctx = new InitialContext();
+            Object object = ctx.lookup(dataSourceName);
+
+            //check whether the referenced JNDI entry is a DataSource
+            if (object instanceof DataSource) {
+                Connection conn = null;
+                try {
+                    DataSource ds = DataSource.class.cast(object);
+                    conn = ds.getConnection();
+                    String database = conn.getMetaData().getDatabaseProductName();
+                    if (database.contains("Derby")) {
+                        result = JBatchJDBCPersistenceManager.class.getName();
+                    } else if (database.contains("MySQL")) {
+                        result = MySqlPersistenceManager.class.getName();
+                    } else if (database.contains("Oracle")) {
+                        result = OraclePersistenceManager.class.getName();
+                    } else if (database.contains("PostgreSQL")) {
+                        result = PostgresPersistenceManager.class.getName();
+                    } else if (database.contains("DB2")) {
+                        result = DB2PersistenceManager.class.getName();
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(BatchRuntimeHelper.class.getName()).log(Level.SEVERE, "Failed to get connecion to determine database type", ex);
+                } finally {
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException ex) {
+                            Logger.getLogger(BatchRuntimeHelper.class.getName()).log(Level.SEVERE, "Failed to close connection", ex);
+                        }
+                    }
+                }
+            } else if (object instanceof HazelcastInstance) {
+                result = "fish.payara.jbatch.persistence.hazelcast.HazelcastPersistenceService";
+            }
+        } catch (NamingException ex) {
+            Logger.getLogger(BatchRuntimeHelper.class.getName()).log(Level.WARNING, "Unable to find JBatch configured DataSource", ex);
+        }
+        return result;
+    }
+
     private class GlassFishDatabaseConfigurationBean
-        extends DatabaseConfigurationBean {
+            extends DatabaseConfigurationBean {
+
         @Override
         public String getJndiName() {
             checkAndInitializeBatchRuntime();
@@ -279,9 +352,9 @@ public class BatchRuntimeHelper
             if (executorService == null) {
                 synchronized (this) {
                     if (executorService == null) {
-                        if (System.getSecurityManager() == null)
+                        if (System.getSecurityManager() == null) {
                             executorService = lookupExecutorService();
-                        else {
+                        } else {
                             java.security.AccessController.doPrivileged(
                                     new java.security.PrivilegedAction() {
                                         public java.lang.Object run() {

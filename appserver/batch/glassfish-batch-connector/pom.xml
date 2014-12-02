@@ -45,12 +45,31 @@
     <parent>
         <groupId>org.glassfish.main.batch</groupId>
         <artifactId>batch</artifactId>
-        <version>4.1</version>
+        <version>4.1.151-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>glassfish-batch-connector</artifactId>
     <packaging>glassfish-jar</packaging>
+    
+    <profiles>
+            <profile>
+               <id>payara_patches_repo</id>
+                   <activation>
+                          <activeByDefault>true</activeByDefault>
+                   </activation>
+                  <repositories>
+                  		<repository>
+               			<id>payara_patches_repo-release</id>
+               			<releases>
+               				<enabled>true</enabled>
+               			</releases>
+               			<url>https://raw.github.com/Payara/Payara_PatchedProjects/master/Jbatch/1.0/releases</url>
+                   		</repository>
+                  </repositories>
+               </profile>
+        </profiles>
+
     
     <name>Batch Connector for Glassfish</name>
     <dependencies>
@@ -60,8 +79,14 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+		<groupId>javax.batch</groupId>
+		<artifactId>javax.batch-api</artifactId>
+		<version>1.0</version>
+	</dependency>
+        <dependency>
             <groupId>com.ibm.jbatch</groupId>
-            <artifactId>com.ibm.jbatch-ri-spi</artifactId>
+            <artifactId>com.ibm.jbatch.spi</artifactId>
+            <version>${com.ibm.jbatch.spi.version}</version>
         </dependency>
         <dependency>
             <groupId>org.glassfish.main.persistence</groupId>
@@ -72,6 +97,18 @@
             <groupId>org.glassfish.main.concurrent</groupId>
             <artifactId>concurrent-connector</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ibm.jbatch</groupId>
+            <artifactId>com.ibm.jbatch.container</artifactId>
+            <version>${com.ibm.jbatch.container.version}</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>com.hazelcast</groupId>
+            <artifactId>hazelcast</artifactId>
+            <version>${hazelcast.version}</version>
+            <type>jar</type>
         </dependency>
     </dependencies>
 </project>

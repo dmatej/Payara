@@ -45,7 +45,7 @@
     <parent>
         <groupId>org.glassfish.main.batch</groupId>
         <artifactId>batch</artifactId>
-        <version>4.1</version>
+        <version>4.1.151-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -89,7 +89,8 @@
         </dependency>
         <dependency>
             <groupId>com.ibm.jbatch</groupId>
-            <artifactId>com.ibm.jbatch-runtime-all</artifactId>
+            <artifactId>com.ibm.jbatch.container</artifactId>
+            <version>${com.ibm.jbatch.container.version}</version>
         </dependency>
         <dependency>
             <groupId>org.glassfish.main.batch</groupId>

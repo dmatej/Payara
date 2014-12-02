@@ -46,7 +46,7 @@
     <parent>
 	<groupId>org.glassfish.main.web</groupId>
     	<artifactId>web</artifactId>
-        <version>4.1</version>
+        <version>4.1.151-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>weld-integration-fragment</artifactId>
@@ -103,6 +103,7 @@
                                 org.jboss.weld.util.collections,
                                 org.jboss.weld.annotated.slim,
                                 org.jboss.weld.annotated.slim.backed,
+                                org.jboss.weld.security,
                                 org.jboss.classfilewriter,
                                 org.jboss.classfilewriter.annotations,
                                 org.jboss.classfilewriter.attributes,

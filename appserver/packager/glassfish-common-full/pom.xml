@@ -46,7 +46,7 @@
     <parent>
         <groupId>org.glassfish.main.packager</groupId>
         <artifactId>packages</artifactId>
-        <version>4.1</version>
+        <version>4.1.151-SNAPSHOT</version>
     </parent>
     <artifactId>glassfish-common-full</artifactId>
     <name>Glassfish Commons for Full Distribution </name>
@@ -180,11 +180,13 @@
         </dependency>
         <dependency>
             <groupId>com.ibm.jbatch</groupId>
-            <artifactId>com.ibm.jbatch-runtime-all</artifactId>
+            <artifactId>com.ibm.jbatch.container</artifactId>
+            <version>${com.ibm.jbatch.container.version}</version>
         </dependency>
         <dependency>
             <groupId>com.ibm.jbatch</groupId>
-            <artifactId>com.ibm.jbatch-ri-spi</artifactId>
+            <artifactId>com.ibm.jbatch.spi</artifactId>
+            <version>${com.ibm.jbatch.spi.version}</version>
         </dependency>
 
        <!-- The following dependencies is for JSR236.  Including this in glassfish-common-full is a temporary solution.  This will be moved
