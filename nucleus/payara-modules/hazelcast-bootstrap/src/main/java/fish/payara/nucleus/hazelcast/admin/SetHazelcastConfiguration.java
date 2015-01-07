@@ -1,7 +1,19 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+
+ DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+
+ Copyright (c) 2014 C2B2 Consulting Limited. All rights reserved.
+
+ The contents of this file are subject to the terms of the Common Development
+ and Distribution License("CDDL") (collectively, the "License").  You
+ may not use this file except in compliance with the License.  You can
+ obtain a copy of the License at
+ https://glassfish.dev.java.net/public/CDDL+GPL_1_1.html
+ or packager/legal/LICENSE.txt.  See the License for the specific
+ language governing permissions and limitations under the License.
+
+ When distributing the software, include this License Header Notice in each
+ file and include the License file at packager/legal/LICENSE.txt.
  */
 package fish.payara.nucleus.hazelcast.admin;
 
@@ -20,13 +32,17 @@ import org.glassfish.api.Param;
 import org.glassfish.api.admin.AdminCommand;
 import org.glassfish.api.admin.AdminCommandContext;
 import org.glassfish.api.admin.CommandLock;
+import org.glassfish.api.admin.CommandRunner;
 import org.glassfish.api.admin.ExecuteOn;
+import org.glassfish.api.admin.ParameterMap;
 import org.glassfish.api.admin.RestEndpoint;
 import org.glassfish.api.admin.RestEndpoints;
 import org.glassfish.api.admin.RuntimeType;
+import org.glassfish.api.admin.TargetBasedExecutor;
 import org.glassfish.config.support.CommandTarget;
 import org.glassfish.config.support.TargetType;
 import org.glassfish.hk2.api.PerLookup;
+import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.internal.api.Target;
 import org.jvnet.hk2.annotations.Service;
 import org.jvnet.hk2.config.ConfigSupport;
@@ -53,7 +69,7 @@ public class SetHazelcastConfiguration implements AdminCommand {
 
     @Inject
     protected Logger logger;
-    
+
     @Inject
     protected HazelcastCore hazelcast;
 
@@ -62,11 +78,14 @@ public class SetHazelcastConfiguration implements AdminCommand {
 
     @Inject
     protected Target targetUtil;
-    
+
     @Param(name = "enabled", optional = false)
     private Boolean enabled;
+    
+    @Param(name = "dynamic", optional = true, defaultValue = "false")
+    private Boolean dynamic;
 
-    @Param(name = "hazelcastConfigurationFile", shortName ="f", optional = true)
+    @Param(name = "hazelcastConfigurationFile", shortName = "f", optional = true)
     private String configFile;
 
     @Param(name = "startPort", shortName = "p", optional = true)
@@ -81,9 +100,13 @@ public class SetHazelcastConfiguration implements AdminCommand {
     @Param(name = "jndiName", shortName = "j", optional = true)
     private String jndiName;
 
+    @Inject
+    ServiceLocator serviceLocator;
+
     @Override
     public void execute(AdminCommandContext context) {
 
+        final AdminCommandContext theContext = context;
         final ActionReport actionReport = context.getActionReport();
         Properties extraProperties = actionReport.getExtraProperties();
         if (extraProperties == null) {
@@ -119,6 +142,7 @@ public class SetHazelcastConfiguration implements AdminCommand {
                         actionReport.setActionExitCode(ActionReport.ExitCode.SUCCESS);
                         return null;
                     }
+
                 }, hazelcastRuntimeConfiguration);
             } catch (TransactionFailure ex) {
                 logger.log(Level.WARNING, "Exception during command ", ex);
@@ -126,7 +150,27 @@ public class SetHazelcastConfiguration implements AdminCommand {
                 actionReport.setActionExitCode(ActionReport.ExitCode.FAILURE);
                 return;
             }
+            
+            if (dynamic) {
+                enableOnTarget(actionReport, theContext, enabled);
+            }
 
+        }
+
+    }
+
+    private void enableOnTarget(ActionReport actionReport, AdminCommandContext context, Boolean enabled) {
+        CommandRunner runner = serviceLocator.getService(CommandRunner.class);
+        ActionReport subReport = context.getActionReport().addSubActionsReport();
+        CommandRunner.CommandInvocation inv = runner.getCommandInvocation("__enable-hazelcast-internal", subReport, context.getSubject());
+        ParameterMap params = new ParameterMap();
+        params.add("enabled", enabled.toString());
+        params.add("target", target);
+        inv.parameters(params);
+        inv.execute();
+        // swallow the offline warning as it is not a problem
+        if (subReport.hasWarnings()) {
+            subReport.setMessage("");
         }
 
     }

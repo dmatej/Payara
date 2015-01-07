@@ -1,7 +1,19 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+
+ DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+
+ Copyright (c) 2014 C2B2 Consulting Limited. All rights reserved.
+
+ The contents of this file are subject to the terms of the Common Development
+ and Distribution License("CDDL") (collectively, the "License").  You
+ may not use this file except in compliance with the License.  You can
+ obtain a copy of the License at
+ https://glassfish.dev.java.net/public/CDDL+GPL_1_1.html
+ or packager/legal/LICENSE.txt.  See the License for the specific
+ language governing permissions and limitations under the License.
+
+ When distributing the software, include this License Header Notice in each
+ file and include the License file at packager/legal/LICENSE.txt.
  */
 package fish.payara.nucleus.hazelcast.admin;
 
@@ -9,6 +21,9 @@ import com.sun.enterprise.config.serverbeans.Config;
 import com.sun.enterprise.config.serverbeans.Domain;
 import com.sun.enterprise.util.ColumnFormatter;
 import fish.payara.nucleus.hazelcast.HazelcastRuntimeConfiguration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import javax.inject.Inject;
 import org.glassfish.api.ActionReport;
 import org.glassfish.api.I18n;
@@ -68,6 +83,19 @@ public class GetHazelcastConfiguration implements AdminCommand {
         values[4] = runtimeConfiguration.getMulticastPort();
         values[5] = runtimeConfiguration.getJNDIName();
         columnFormatter.addRow(values);
+        
+        Map<String, Object> map = new HashMap<String,Object>();
+        Properties extraProps = new Properties();
+        map.put("hazelcastConfigurationFile", values[0]);
+        map.put("enabled", values[1]);
+        map.put("startPort", values[2]);
+        map.put("multicastGroup", values[3]);
+        map.put("multicastPort", values[4]);
+        map.put("jndiName", values[5]);
+        extraProps.put("getHazelcastConfiguration",map);
+                
+        actionReport.setExtraProperties(extraProps);
+        
         actionReport.setMessage(columnFormatter.toString());
         actionReport.setActionExitCode(ActionReport.ExitCode.SUCCESS);
     }

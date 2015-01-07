@@ -40,6 +40,7 @@
     holder.
 
 -->
+<!-- Portions Copyright [2014] [C2B2 Consulting Limited] -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
@@ -51,26 +52,6 @@
 
     <artifactId>glassfish-batch-connector</artifactId>
     <packaging>glassfish-jar</packaging>
-    
-    <profiles>
-            <profile>
-               <id>payara_patches_repo</id>
-                   <activation>
-                          <activeByDefault>true</activeByDefault>
-                   </activation>
-                  <repositories>
-                  		<repository>
-               			<id>payara_patches_repo-release</id>
-               			<releases>
-               				<enabled>true</enabled>
-               			</releases>
-               			<url>https://raw.github.com/Payara/Payara_PatchedProjects/master/Jbatch/1.0/releases</url>
-                   		</repository>
-                  </repositories>
-               </profile>
-        </profiles>
-
-    
     <name>Batch Connector for Glassfish</name>
     <dependencies>
         <dependency>
