@@ -68,6 +68,7 @@
     <modules>
         <module>minnow</module>
         <module>web</module>
+        <module>payara-web</module>
         <module>glassfish</module>
         <module>payara</module>
     </modules>
