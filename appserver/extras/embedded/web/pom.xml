@@ -47,12 +47,12 @@
   <parent>
     <groupId>org.glassfish.main.extras</groupId>
     <artifactId>extras</artifactId>
-    <version>4.1.151-SNAPSHOT</version>
+    <version>4.1.152-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
   <artifactId>glassfish-embedded-web</artifactId>
-  <version>4.1.151-SNAPSHOT</version>
+  <version>4.1.152-SNAPSHOT</version>
   <name>Embedded GlassFish Web</name>
       <packaging>jar</packaging>
 
@@ -262,6 +262,14 @@
             <type>zip</type>
             <optional>true</optional>
         </dependency>
+	<!-- hazelcast package -->
+	<dependency>
+	    <groupId>org.glassfish.main.packager</groupId>
+	    <artifactId>hazelcast</artifactId>
+	    <version>${project.version}</version>
+	    <type>zip</type>
+	    <optional>true</optional>
+	</dependency>
     </dependencies>
 
     <profiles>
