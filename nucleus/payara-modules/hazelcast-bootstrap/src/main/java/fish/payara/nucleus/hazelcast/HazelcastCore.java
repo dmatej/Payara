@@ -115,10 +115,7 @@ public class HazelcastCore implements EventListener {
     }
     
     public String getUUID() {
-        if (enabled && !booted) {
-            bootstrapHazelcast();
-        }
-        
+        bootstrapHazelcast();
         if (!enabled) {
             return UUID.randomUUID().toString();
         }        
@@ -126,10 +123,7 @@ public class HazelcastCore implements EventListener {
     }
     
     public boolean isLite() {
-        if (enabled && !booted) {
-            bootstrapHazelcast();
-        }
-        
+        bootstrapHazelcast();
         if (!enabled) {
             return false;
         }
@@ -137,16 +131,12 @@ public class HazelcastCore implements EventListener {
     }
 
     public HazelcastInstance getInstance() {
-        if (enabled && !booted) {
-            bootstrapHazelcast();
-        }
+        bootstrapHazelcast();
         return theInstance;
     }
 
     public CachingProvider getCachingProvider() {
-        if (enabled && !booted) {
-            bootstrapHazelcast();
-        }
+        bootstrapHazelcast();
         return hazelcastCachingProvider;
     }
 
@@ -158,14 +148,8 @@ public class HazelcastCore implements EventListener {
     public void event(Event event) {
         if (event.is(EventTypes.SERVER_SHUTDOWN)) {
             shutdownHazelcast();
-        } else if (event.is(EventTypes.SERVER_READY)) {
-            if (enabled) {
-                bindToJNDI();
-            }
         } else if (event.is(EventTypes.SERVER_STARTUP)) {
-            if (enabled && !booted) {
-                bootstrapHazelcast();
-            }
+            bootstrapHazelcast();
         }
     }
 
@@ -179,13 +163,11 @@ public class HazelcastCore implements EventListener {
         } else if (!this.enabled && enabled) {
             this.enabled = true;
             bootstrapHazelcast();
-            bindToJNDI();
         } else if (this.enabled && enabled) {
             // we need to reboot
             shutdownHazelcast();
             booted =false;
             bootstrapHazelcast();
-            bindToJNDI();
         }
     }
 
@@ -252,7 +234,7 @@ public class HazelcastCore implements EventListener {
     }
 
     private synchronized void bootstrapHazelcast() {
-        if (!booted) {
+        if (!booted && enabled) {
             Config config = buildConfiguration();
             theInstance = Hazelcast.newHazelcastInstance(config);
             if (env.isMicro()) {
@@ -296,6 +278,7 @@ public class HazelcastCore implements EventListener {
             theInstance.getCluster().getLocalMember().setStringAttribute(INSTANCE_GROUP_ATTRIBUTE, memberGroup);
             hazelcastCachingProvider = HazelcastServerCachingProvider.createCachingProvider(theInstance);
             events.send(new Event(HazelcastEvents.HAZELCAST_BOOTSTRAP_COMPLETE));
+            bindToJNDI();
         }
         booted = true;
     }
