@@ -127,7 +127,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- test deps -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
@@ -139,5 +138,9 @@
              <version>${grizzly.npn.api.version}</version>
              <scope>test</scope>
          </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
     </dependencies>
 </project>
