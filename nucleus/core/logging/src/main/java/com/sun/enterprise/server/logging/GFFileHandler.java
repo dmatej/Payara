@@ -58,11 +58,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.security.PrivilegedAction;
-import java.text.FieldPosition;
 import java.text.MessageFormat;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
@@ -488,11 +487,11 @@ public class GFFileHandler extends StreamHandler
         // this loop is used for ODL formatter
         ODLLogFormatter formatterClass;
         // set the formatter
-        if (agent != null) {
-            formatterClass = new ODLLogFormatter(new AgentFormatterDelegate(agent));
+        if (agent == null) {
+            formatterClass = new ODLLogFormatter();
             setFormatter(formatterClass);
         } else {
-            formatterClass = new ODLLogFormatter();
+            formatterClass = new ODLLogFormatter(new AgentFormatterDelegate(agent));
             setFormatter(formatterClass);
         }
         formatterClass.setExcludeFields(excludeFields);
@@ -506,11 +505,11 @@ public class GFFileHandler extends StreamHandler
         // this loop is used for UFL formatter
         UniformLogFormatter formatterClass;
         // set the formatter
-        if (agent != null) {
-            formatterClass = new UniformLogFormatter(new AgentFormatterDelegate(agent));
+        if (agent == null) {
+            formatterClass = new UniformLogFormatter();
             setFormatter(formatterClass);
         } else {
-            formatterClass = new UniformLogFormatter();
+            formatterClass = new UniformLogFormatter(new AgentFormatterDelegate(agent));
             setFormatter(formatterClass);
         }
 
@@ -535,9 +534,9 @@ public class GFFileHandler extends StreamHandler
 
         String recordDateFormat = manager.getProperty(cname + ".logFormatDateFormat");
         if (recordDateFormat != null && !recordDateFormat.isEmpty()) {
-            SimpleDateFormat sdf = new SimpleDateFormat(recordDateFormat);
+            DateTimeFormatter df = DateTimeFormatter.ofPattern(recordDateFormat);
             try {
-                sdf.format(new Date());
+                df.format(LocalDateTime.now());
             } catch (Exception e) {
                 recordDateFormat = RECORD_DATE_FORMAT;
             }
@@ -798,15 +797,12 @@ public class GFFileHandler extends StreamHandler
                         }
                         return null;
                     }
-// FIXME: don't use stringbuffer and sdf
                     File oldFile = currentLogFile;
-                    StringBuffer renamedFileName = new StringBuffer(currentLogFile + "_");
-                    new SimpleDateFormat(LOG_ROTATE_DATE_FORMAT).format(new Date(), renamedFileName,
-                        new FieldPosition(0));
-                    File rotatedFile = new File(renamedFileName.toString());
+                    String renamedFileName = currentLogFile + "_"
+                        + DateTimeFormatter.ofPattern(LOG_ROTATE_DATE_FORMAT).format(LocalDateTime.now());
+                    File rotatedFile = new File(renamedFileName);
                     boolean renameSuccess = oldFile.renameTo(rotatedFile);
                     if (!renameSuccess) {
-// FIXME: magic spells? Too many open handles is a resource leak, maybe it will not break here, but must break later.
                         // If we don't succeed with file rename which
                         // most likely can happen on Windows because
                         // of multiple file handles opened. We go through
