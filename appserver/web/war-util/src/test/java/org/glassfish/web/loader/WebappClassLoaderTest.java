@@ -41,10 +41,10 @@ package org.glassfish.web.loader;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.lang.Thread.State;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -52,6 +52,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -60,62 +62,35 @@ import java.util.jar.JarFile;
 
 import org.apache.naming.resources.FileDirContext;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class WebappClassLoaderTest {
 
-    private static final int COUNT_OF_FILES = 100;
-    private static final int THREAD_POOL_SIZE = 500;
-    private static final int ITERATION_COUNT = 500; // count of executions from pool: ITERATION_COUNT * 3 + 1
-    private static final int RESULT_TIMEOUT = 60_000;
-    private static final int TERMINATION_TIMEOUT = 10_000;
+    private static final int COUNT_OF_FILES = 1000;
+    private static final int TASK_COUNT = 1500;
+    private static final int THREAD_POOL_SIZE = 1000;
 
-    private static AtomicInteger executedUnfinshedThreads;
-    private static ExecutorService executor;
-    private static File junitJarFile;
+    private static final int RESULT_TIMEOUT = 20_000;
+    private static final int TERMINATION_TIMEOUT = 60_000;
+
+    private final AtomicBoolean tasksInitialized = new AtomicBoolean();
+    private AtomicInteger executedUnfinshedThreads;
+    private ExecutorService executor;
+    private File junitJarFile;
     private ClassLoader classLoader;
     private WebappClassLoader webappClassLoader;
 
-    @BeforeClass
-    public static void setup() throws URISyntaxException {
+
+    @Before
+    public void initClassLoader() throws Exception {
         executedUnfinshedThreads = new AtomicInteger();
         executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
         // Fetch any JAR to use for classloading
         junitJarFile = new File(Test.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-    }
-
-    @AfterClass
-    public static void shutdown() throws Exception {
-        if (executor != null) {
-            executor.shutdownNow();
-            try {
-                assertTrue(
-                    "Could not terminate all threads - they are in deadlock OR are active but cannot be interrupted.",
-                    executor.awaitTermination(TERMINATION_TIMEOUT, TimeUnit.MILLISECONDS));
-            } catch (AssertionError e) {
-                // print stack traces of all active executor threads.
-                Predicate<Map.Entry<Thread, ?>> filter = entry -> entry.getKey().getName().startsWith("pool-1");
-                Consumer<Entry<Thread, StackTraceElement[]>> print = entry -> {
-                    System.out.println(entry.getKey().getName() + ":");
-                    Arrays.asList(entry.getValue()).forEach(v -> System.out.println("  " + v));
-                    System.out.println();
-                };
-                Thread.getAllStackTraces().entrySet().stream().filter(filter).forEach(print);
-                throw e;
-            }
-        }
-    }
-
-
-    @Before
-    public void initClassLoader() {
         classLoader = this.getClass().getClassLoader();
         webappClassLoader = new WebappClassLoader(classLoader, null);
         webappClassLoader.start();
@@ -126,10 +101,40 @@ public class WebappClassLoaderTest {
     @After
     public void closeClassLoader() throws Exception {
         if (webappClassLoader != null) {
-            webappClassLoader.close();
+            try {
+                webappClassLoader.close();
+            } catch (Exception e) {
+                // ignore it
+            }
         }
-        // this will add exception to current TimeoutException with more info.
-        assertEquals("Some tasks not finished yet.", 0, executedUnfinshedThreads.get());
+        if (executor != null) {
+            executor.shutdownNow();
+            try {
+                assertTrue(
+                    "Could not terminate all threads - they are in deadlock OR are active but cannot be interrupted.",
+                    executor.awaitTermination(TERMINATION_TIMEOUT, TimeUnit.MILLISECONDS));
+            } catch (AssertionError e) {
+                // print stack traces of all active executor threads.
+                Predicate<Map.Entry<Thread, ?>> nameFilter = entry -> entry.getKey().getName().startsWith("pool-1");
+                Consumer<Entry<Thread, StackTraceElement[]>> print = entry -> {
+                    final Thread thread = entry.getKey();
+                    System.out.println(thread.getName() + "(state=" + thread.getState() + "):");
+                    Arrays.asList(entry.getValue()).forEach(v -> System.out.println("  " + v));
+                    System.out.println();
+                };
+                Thread.getAllStackTraces().entrySet().stream().filter(nameFilter).forEach(print);
+
+                Predicate<Thread> stateAndNameFilter = thread -> thread.getName().startsWith("pool-1")
+                    && thread.getState() == State.RUNNABLE;
+                boolean anyRunnable = Thread.getAllStackTraces().keySet().stream().filter(stateAndNameFilter).findAny()
+                    .isPresent();
+                if (!anyRunnable) {
+                    throw e;
+                }
+                System.err.println("Pool executor threads failed to finish, but at least one thread"
+                    + " was in runnable state, so we are not in deadlock.");
+            }
+        }
     }
 
 
@@ -138,29 +143,38 @@ public class WebappClassLoaderTest {
 
         // result value is not important, important is to not finish with exception
         CompletableFuture<Void> result = new CompletableFuture<>();
-        Runnable lookupTask = waitAndDo(result, () -> lookup(classLoader, webappClassLoader));
-        Runnable addTask = waitAndDo(result, () -> add(classLoader, webappClassLoader));
+        Runnable lookupTask = waitAndDo(result, () -> lookup(classLoader));
+        Runnable addTask = waitAndDo(result, () -> add(classLoader));
         Runnable closeTask = waitAndDo(result, () -> webappClassLoader.closeJARs(true));
-
-        // Run the methods at the same time
-        for (int i = 0; i < ITERATION_COUNT; i++) {
-            execute(addTask);
-            execute(lookupTask);
-            execute(closeTask);
-        }
 
         // watches count of executed tasks, which did not finish yet.
         Runnable watcher = () -> {
+            while (!tasksInitialized.get()) {
+                Thread.yield();
+            }
             while (executedUnfinshedThreads.get() > 0) {
+                if (Thread.interrupted()) {
+                    return;
+                }
                 Thread.yield();
             }
             result.complete(null);
         };
-        executor.execute(watcher);
+        new Thread(watcher).start();
 
-        // wait max 10 seconds for completition by any way
-        // exception in task will be rethrown here
-        result.get(RESULT_TIMEOUT, TimeUnit.MILLISECONDS);
+        // Run the methods at the same time
+        for (int i = 0; i < TASK_COUNT; i += 3) {
+            execute(closeTask);
+            execute(addTask);
+            execute(lookupTask);
+        }
+        tasksInitialized.set(true);
+
+        try {
+            result.get(RESULT_TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (final TimeoutException e) {
+            // exception does not tell much, the following assert is better.
+        }
     }
 
 
@@ -169,9 +183,8 @@ public class WebappClassLoaderTest {
         executedUnfinshedThreads.incrementAndGet();
     }
 
-    private void add(ClassLoader realClassLoader, WebappClassLoader webappClassLoader) throws IOException {
+    private void add(ClassLoader realClassLoader) throws Exception {
         List<JarFile> jarFiles = findJarFiles(realClassLoader);
-
         for (JarFile j : jarFiles) {
             try {
                 webappClassLoader.addJar(junitJarFile.getName(), j, junitJarFile);
@@ -181,18 +194,17 @@ public class WebappClassLoaderTest {
         }
     }
 
-    private void lookup(ClassLoader realClassLoader, WebappClassLoader webappClassLoader) throws Exception {
+    private void lookup(ClassLoader realClassLoader) throws Exception {
         for (JarFile jarFile : findJarFiles(realClassLoader)) {
             for (JarEntry entry : Collections.list(jarFile.entries())) {
                 webappClassLoader.findResource(entry.getName());
                 // System.out.println("Looked up " + resourceEntry);
-                Thread.yield();
             }
         }
     }
 
     private List<JarFile> findJarFiles(ClassLoader realClassLoader) throws IOException {
-        List<JarFile> jarFiles = new LinkedList<>();
+        List<JarFile> jarFiles = new ArrayList<>(COUNT_OF_FILES);
         for (int i = 0; i < COUNT_OF_FILES; i++) {
             jarFiles.add(new JarFile(junitJarFile));
         }
@@ -208,13 +220,14 @@ public class WebappClassLoaderTest {
      * @param task   the task to run
      * @return a new task
      */
-    private static Runnable waitAndDo(final CompletableFuture<Void> result, final ExceptionalRunnable task) {
+    private Runnable waitAndDo(final CompletableFuture<Void> result, final ExceptionalRunnable task) {
         return () -> {
             try {
                 task.run();
-                executedUnfinshedThreads.decrementAndGet();
             } catch (Exception ex) {
                 result.completeExceptionally(ex);
+            } finally {
+                executedUnfinshedThreads.decrementAndGet();
             }
         };
     }
