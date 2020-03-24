@@ -48,7 +48,11 @@ import fish.payara.appserver.rest.endpoints.config.admin.ListRestEndpointsComman
 import fish.payara.boot.runtime.BootCommand;
 import fish.payara.boot.runtime.BootCommands;
 import fish.payara.deployment.util.GAVConvertor;
+import fish.payara.logging.jul.PayaraLogManager;
+import fish.payara.logging.jul.PayaraLogManagerConfigurationParser;
+import fish.payara.logging.jul.formatter.ODLLogFormatter;
 import fish.payara.micro.BootstrapException;
+import fish.payara.micro.PayaraMicroLoggingInitializer;
 import fish.payara.micro.PayaraMicroRuntime;
 import fish.payara.micro.boot.AdminCommandRunner;
 import fish.payara.micro.boot.PayaraMicroBoot;
@@ -121,7 +125,7 @@ public class PayaraMicroImpl implements PayaraMicroBoot {
     private static final Logger LOGGER;
 
     static {
-        PayaraLogManagerInitializer.tryToSetAsDefault(createDefaultLoggingProperties());
+        PayaraMicroLoggingInitializer.initialize();
         LOGGER = Logger.getLogger("PayaraMicro");
     }
 
@@ -218,21 +222,6 @@ public class PayaraMicroImpl implements PayaraMicroBoot {
      */
     public static void main(String args[]) throws BootstrapException {
         create(args);
-    }
-
-    static void initializeLoggingSystem() {
-        // no body required, the trick is that before any method of this class
-        // will be called, static class initialization will be done.
-    }
-
-    private static Properties createDefaultLoggingProperties() {
-        final Properties cfg = new Properties();
-        cfg.setProperty("handlers", "java.util.logging.ConsoleHandler");
-        cfg.setProperty("systemRootLoggerLevel", Level.INFO.getName());
-        cfg.setProperty(".level", Level.INFO.getName());
-        // useful to track any startup race conditions etc. Logging is always in game.
-        cfg.setProperty("fish.payara.logging.jul.tracingEnabled", "false");
-        return cfg;
     }
 
 
@@ -1813,7 +1802,8 @@ public class PayaraMicroImpl implements PayaraMicroBoot {
 
     private void resetAndReloadLoggingConfiguration() throws IOException {
         if (PayaraLogManager.isPayaraLogManager()) {
-            PayaraLogManager.getLogManager().resetAndReadConfiguration(runtimeDir.getLoggingProperties());
+            PayaraLogManager.getLogManager()
+                .reconfigure(new PayaraLogManagerConfigurationParser().parse(runtimeDir.getLoggingProperties()));
         } else {
             try (InputStream is = new FileInputStream(runtimeDir.getLoggingProperties())) {
                 LogManager.getLogManager().readConfiguration(is);

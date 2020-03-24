@@ -39,10 +39,12 @@
  */
 package fish.payara.micro;
 
+import fish.payara.micro.PayaraMicroLoggingInitializer;
 import fish.payara.micro.boot.AdminCommandRunner;
 import fish.payara.micro.boot.PayaraMicroBoot;
 import fish.payara.micro.boot.PayaraMicroLauncher;
 import fish.payara.micro.boot.loader.ExplodedURLClassloader;
+
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
@@ -54,15 +56,15 @@ import java.util.logging.Logger;
  * @author steve
  */
 public class PayaraMicro implements PayaraMicroBoot {
-    
-    
+
+
     private PayaraMicroBoot wrappee;
     private ClassLoader nestedLoader;
-    
+
     private static PayaraMicro instance;
     private static boolean explodedJars;
     private static File explodedDir;
-    
+
     /**
      * Tells the runtime to unpack the jars before booting
      * This must be called before getInstance
@@ -71,12 +73,12 @@ public class PayaraMicro implements PayaraMicroBoot {
     public static void unpackJars() {
         explodedJars = true;
     }
-    
+
     /**
      * Sets the directory where unpacked jars should live
      * And tells the runtime to unpack the jars
      * This must be called before getInstance
-     * @param file 
+     * @param file
      */
     public static void setUpackedJarDir(File file) {
         explodedDir = file;
@@ -116,7 +118,7 @@ public class PayaraMicro implements PayaraMicroBoot {
             instance = new PayaraMicro();
         }
         return instance;
-    }  
+    }
 
     @Override
     public PayaraMicro addDeployFromGAV(String GAV) {
@@ -234,7 +236,7 @@ public class PayaraMicro implements PayaraMicroBoot {
     public int getSslPort() {
         return wrappee.getSslPort();
     }
-    
+
     @Override
     public String getSslCert() {
         return wrappee.getSslCert();
@@ -344,7 +346,7 @@ public class PayaraMicro implements PayaraMicroBoot {
         wrappee.setHzClusterPassword(hzClusterPassword);
         return this;
     }
-    
+
     /**
      * Gets the name of the instance group
      *
@@ -406,7 +408,7 @@ public class PayaraMicro implements PayaraMicroBoot {
     @Override
     public PayaraMicro setNoCluster(boolean noCluster) {
         wrappee.setNoCluster(noCluster);
-        return this;        
+        return this;
     }
 
     @Override
@@ -432,7 +434,7 @@ public class PayaraMicro implements PayaraMicroBoot {
         wrappee.setSslPort(sslPort);
         return this;
     }
-    
+
     @Override
     public PayaraMicro setSslCert(String alias) {
         wrappee.setSslCert(alias);
@@ -444,7 +446,7 @@ public class PayaraMicro implements PayaraMicroBoot {
         wrappee.setUserLogFile(fileName);
         return this;
     }
-    
+
     @Override
     public PayaraMicro setSniEnabled(boolean value) {
         wrappee.setSniEnabled(value);
@@ -455,13 +457,13 @@ public class PayaraMicro implements PayaraMicroBoot {
     public void shutdown() throws BootstrapException {
         wrappee.shutdown();
     }
-    
+
     public ClassLoader setThreadBootstrapLoader() {
         ClassLoader result = Thread.currentThread().getContextClassLoader();
         Thread.currentThread().setContextClassLoader(nestedLoader);
         return result;
     }
-    
+
     public static void main(String ... args) {
         try {
             PayaraMicroLauncher.main(args);
@@ -469,7 +471,7 @@ public class PayaraMicro implements PayaraMicroBoot {
             Logger.getLogger(PayaraMicro.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
     private PayaraMicro() {
         try {
             if (explodedJars) {
@@ -479,10 +481,11 @@ public class PayaraMicro implements PayaraMicroBoot {
                     nestedLoader = new ExplodedURLClassloader();
                 }
                 setThreadBootstrapLoader();
+                PayaraMicroLoggingInitializer.initialize();
                 Class<?> mainClass = Thread.currentThread().getContextClassLoader()
                         .loadClass("fish.payara.micro.impl.PayaraMicroImpl");
                 Method instanceMethod = mainClass.getDeclaredMethod("getInstance");
-                wrappee = (PayaraMicroBoot) instanceMethod.invoke(null); 
+                wrappee = (PayaraMicroBoot) instanceMethod.invoke(null);
             } else {
                 wrappee = PayaraMicroLauncher.getBootClass();
                 nestedLoader = wrappee.getClass().getClassLoader();
@@ -491,17 +494,18 @@ public class PayaraMicro implements PayaraMicroBoot {
             Logger.getLogger(PayaraMicro.class.getName()).log(Level.SEVERE, "Unable to create implementation class", ex);
         }
     }
-    
+
     /**
      * Adds the library to the classloader and loads it
-     * 
+     *
      * @param lib The URL or filepath of the library to add
-     * @return 
+     * @return
      * @since 4.1.2.173
      */
-    public PayaraMicro addLibrary(File lib){  
+    @Override
+    public PayaraMicro addLibrary(File lib){
         wrappee.addLibrary(lib);
         return this;
     }
-    
+
 }
