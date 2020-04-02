@@ -49,6 +49,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -88,18 +90,10 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
 
 
     /**
-     * @return absolute path to asadmin command file in the container.
-     */
-    public File getAsadmin() {
-        return new File(configuration.getPayaraMainDirectoryInDocker(), "bin/asadmin");
-    }
-
-
-    /**
      * @return {@link URL}, where tests can access the domain admin port.
      */
     public URL getAdminUrl() {
-        return getExternalUrl("https", configuration.getAdminPort());
+        return getExternalUrl("https", TestablePayaraPort.DAS_ADMIN_PORT);
     }
 
 
@@ -107,7 +101,7 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
      * @return {@link URL}, where tests can access the appllication HTTP port.
      */
     public URL getHttpUrl() {
-        return getExternalUrl("http", configuration.getHttpPort());
+        return getExternalUrl("http", TestablePayaraPort.DAS_HTTP_PORT);
     }
 
 
@@ -115,14 +109,14 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
      * @return {@link URL}, where tests can access the application HTTPS port.
      */
     public URL getHttpsUrl() {
-        return getExternalUrl("https", configuration.getHttpsPort());
+        return getExternalUrl("https", TestablePayaraPort.DAS_HTTPS_PORT);
     }
 
 
-    private URL getExternalUrl(String protocol, int internalPort) {
+    private URL getExternalUrl(final String protocol, final TestablePayaraPort internalPort) {
         try {
-            return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort), "/");
-        } catch (MalformedURLException e) {
+            return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort.getPort()), "/");
+        } catch (final MalformedURLException e) {
             throw new IllegalStateException(
                 "Could not create external url for protocol '" + protocol + "' and port " + internalPort, e);
         }
@@ -132,13 +126,23 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
     @Override
     public void close() {
         try {
+            if (Stream.of(asAdmin("list-domains").split("\n")).filter(
+                line -> line.contains(this.configuration.getPayaraDomainName()) && line.contains("not running"))
+                .findFirst().isPresent()) {
+                asLocalAdmin("start-domain", this.configuration.getPayaraDomainName());
+            }
+        } catch (final Exception e) {
+            throw new IllegalStateException(
+                "Could not ensure the domain is running to stop all instances managed by this domain.", e);
+        }
+        try {
             stopAllInstances();
         } catch (final Exception e) {
             LOG.error("Could not stop all instances managed by this domain.", e);
         }
         this.clientCache.close();
         try {
-            asLocalAdmin("stop-domain");
+            asLocalAdmin("stop-domain", this.configuration.getPayaraDomainName());
         } catch (final Exception e) {
             LOG.error("Could not shutdown the server nicely.", e);
         }
@@ -148,10 +152,10 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
     private void stopAllInstances() throws AsadminCommandException {
         final List<String> instances = Stream.of(asAdmin("list-instances").split("\n")).map(String::trim)
             .filter(line -> !line.contains("Nothing to list.")).map(s -> s.split(" ")[0]).collect(Collectors.toList());
-        for (String instance : instances) {
+        for (final String instance : instances) {
             try {
                 asAdmin("stop-instance", instance);
-            } catch (AsadminCommandException e) {
+            } catch (final AsadminCommandException e) {
                 LOG.warn("Could not stop instance " + instance, e);
             }
             try {
@@ -170,7 +174,7 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
     /**
      * @param fileInContainer
      */
-    public void reconfigureLogging(File fileInContainer) {
+    public void reconfigureLogging(final File fileInContainer) {
         // TODO: to be done later.
     }
 
@@ -183,6 +187,24 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
         LOG.trace("networks: {}", networks);
         return networks.stream().filter(n -> n.getNetworkID().equals(getNetwork().getId())).findAny()
             .map(ContainerNetwork::getIpAddress).orElse("127.0.0.1");
+    }
+
+
+    /**
+     * @return instance resolving Payara directory structure <b>inside</b> the docker container.
+     */
+    public PayaraServerFiles getPayaraFileStructureInDocker() {
+        return new PayaraServerFiles(configuration.getPayaraMainDirectoryInDocker(),
+            configuration.getPayaraDomainName());
+    }
+
+
+    /**
+     * @return instance resolving Payara directory structure <b>outside</b> the docker container.
+     */
+    public PayaraServerFiles getPayaraFileStructure() {
+        return new PayaraServerFiles(configuration.getPayaraMainDirectory(),
+            configuration.getPayaraDomainName());
     }
 
 
@@ -214,17 +236,28 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
      *             error output
      */
     public String asAdmin(final String command, final String... arguments) throws AsadminCommandException {
-        final String[] defaultArgs = new String[] {"--terse", "--user", "admin", //
-            "--passwordfile", this.configuration.getPasswordFileInDocker().getAbsolutePath()};
-        final AsadminCommandExecutor executor = new AsadminCommandExecutor(this, defaultArgs);
+        final List<String> defaultArgs = new ArrayList<>(Arrays.asList("--terse", "--user", "admin"));
+        if (this.configuration.getPasswordFileInDocker() != null) {
+            defaultArgs.add("--passwordfile");
+            defaultArgs.add(this.configuration.getPasswordFileInDocker().getAbsolutePath());
+        }
+        final AsadminCommandExecutor executor = new AsadminCommandExecutor(this,
+            defaultArgs.toArray(new String[defaultArgs.size()]));
         return executor.exec(command, arguments).trim();
     }
 
 
     /**
-     * Calls hosts docker on port 2376 with the HTTP POST.
-     * The port must be exposed into container with
-     * the {@link Testcontainers#exposeHostPorts(int...)} before the container is created.
+     * @return absolute path to asadmin command file in the container.
+     */
+    public File getAsadmin() {
+        return getPayaraFileStructureInDocker().getAsadmin();
+    }
+
+
+    /**
+     * Calls hosts docker with the HTTP POST. It's port must be exposed into container with the
+     * {@link Testcontainers#exposeHostPorts(int...)} before the container is created.
      *
      * @param path
      * @param json
@@ -236,9 +269,8 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
 
 
     /**
-     * Calls hosts docker on port 2376.
-     * The port must be exposed into container with
-     * the {@link Testcontainers#exposeHostPorts(int...)} before the container is created.
+     * Calls hosts docker. It's port must be exposed into container with the
+     * {@link Testcontainers#exposeHostPorts(int...)} before the container is created.
      *
      * @param method
      * @param path

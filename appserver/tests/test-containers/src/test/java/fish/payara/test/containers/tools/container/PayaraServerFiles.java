@@ -57,14 +57,17 @@ import java.nio.file.Paths;
 public class PayaraServerFiles {
 
     private final File mainDirectory;
+    private final String domainName;
 
     /**
      * Creates new instance.
      *
      * @param mainDirectory
+     * @param domainName
      */
-    public PayaraServerFiles(final File mainDirectory) {
+    public PayaraServerFiles(final File mainDirectory, final String domainName) {
         this.mainDirectory = mainDirectory;
+        this.domainName = domainName;
     }
 
 
@@ -77,16 +80,47 @@ public class PayaraServerFiles {
 
 
     /**
-     * @return domain1 directory
+     * @return domain directory
      */
-    // FIXME: move domain name to one place!
     public File getDomainDirectory() {
-        return Paths.get(getMainDirectory().getAbsolutePath(), "glassfish", "domains", "domain1").toFile();
+        return Paths.get(getMainDirectory().getAbsolutePath(), "glassfish", "domains", this.domainName).toFile();
     }
 
 
     /**
-     * @return keystore.jks of the domain1
+     * @return domain config directory
+     */
+    public File getDomainConfigDirectory() {
+        return new File(getDomainDirectory(), "config");
+    }
+
+
+    /**
+     * @return domain lib directory
+     */
+    public File getDomainLibDirectory() {
+        return new File(getDomainDirectory(), "lib");
+    }
+
+
+    /**
+     * @return domain log directory
+     */
+    public File getDomainLogDirectory() {
+        return new File(getDomainDirectory(), "logs");
+    }
+
+
+    /**
+     * @return domain config directory
+     */
+    public File getServerLogFile() {
+        return new File(getDomainLogDirectory(), "server.log");
+    }
+
+
+    /**
+     * @return keystore.jks of the domain
      */
     public File getKeyStoreFile() {
         return getDomainDirectory().toPath().resolve(Paths.get("config", "keystore.jks")).toFile();
@@ -94,7 +128,7 @@ public class PayaraServerFiles {
 
 
     /**
-     * @return cacerts.jks of the domain1
+     * @return cacerts.jks of the domain
      */
 
     public File getTrustStoreFile() {
@@ -103,18 +137,26 @@ public class PayaraServerFiles {
 
 
     /**
-     * @return keystore.jks of the domain1
+     * @return keystore.jks of the domain
      */
-    // FIXME: move passwords to one place!
+    // TODO: move passwords to one place!
     public KeyStoreManager getKeyStore() {
         return new KeyStoreManager(getKeyStoreFile(), KeyStoreType.JKS, "changeit");
     }
 
 
     /**
-     * @return cacerts.jks of the domain1
+     * @return cacerts.jks of the domain
      */
     public KeyStoreManager getTrustStore() {
         return new KeyStoreManager(getTrustStoreFile(), KeyStoreType.JKS, "changeit");
+    }
+
+
+    /**
+     * @return asadmin file (not asadmin.bat, we always run on Linux here!)
+     */
+    public File getAsadmin() {
+        return new File(new File(getMainDirectory(), "bin"), "asadmin");
     }
 }

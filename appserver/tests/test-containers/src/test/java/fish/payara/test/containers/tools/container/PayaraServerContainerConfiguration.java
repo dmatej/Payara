@@ -40,7 +40,6 @@
 package fish.payara.test.containers.tools.container;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
@@ -51,43 +50,45 @@ import java.nio.file.Paths;
 public class PayaraServerContainerConfiguration extends JavaContainerConfiguration {
 
     private static final String JACOCO_DOCKER_PAYARA_SERVER_EXEC_FILE = "jacoco-docker-payara-server.exec";
-    private static final Path PATH_PAYARA_TO_DOMAIN = Paths.get("glassfish", "domains", "domain1");
 
-    private int adminPort;
-    private int httpsPort;
-
+    private String payaraDirectoryName;
+    private String payaraDomainName;
     private NetworkTarget dockerHostAndPort;
-
+    private boolean newLoggingImplementation;
 
     /**
-     * @return internal port of the admin endpoint in the docker container.
+     * Name of the root payara directory
+     *
+     * @return payara5/payara41/...
      */
-    public int getAdminPort() {
-        return this.adminPort;
+    public String getPayaraDirectoryName() {
+        return payaraDirectoryName;
     }
 
 
     /**
-     * @param port the internal httpPort of the admine endpoint in the docker container
+     * Sets the name of the root payara directory (payara5/payara41/...)
+     *
+     * @param payaraDirectoryName root payara directory
      */
-    public void setAdminPort(final int port) {
-        this.adminPort = port;
+    public void setPayaraDirectoryName(final String payaraDirectoryName) {
+        this.payaraDirectoryName = payaraDirectoryName;
     }
 
 
     /**
-     * @return internal https port used by applications in the docker container.
+     * @return name of the domain existing in the container
      */
-    public int getHttpsPort() {
-        return this.httpsPort;
+    public String getPayaraDomainName() {
+        return payaraDomainName;
     }
 
 
     /**
-     * @param port the internal https port used by applications in the docker container
+     * @param payaraDomainName name of the domain existing in the container
      */
-    public void setHttpsPort(final int port) {
-        this.httpsPort = port;
+    public void setPayaraDomainName(final String payaraDomainName) {
+        this.payaraDomainName = payaraDomainName;
     }
 
 
@@ -111,7 +112,8 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
      * @return directory containing domain directory
      */
     public File getPayaraDomainDirectory() {
-        return getMainApplicationDirectory().toPath().resolve("payara5").resolve(PATH_PAYARA_TO_DOMAIN).toFile();
+        return getPayaraMainDirectory().toPath()
+            .resolve(Paths.get("glassfish", "domains", getPayaraDomainName())).toFile();
     }
 
 
@@ -119,7 +121,8 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
      * @return directory containing domain directory in docker container
      */
     public File getPayaraDomainDirectoryInDocker() {
-        return getPayaraMainDirectoryInDocker().toPath().resolve(PATH_PAYARA_TO_DOMAIN).toFile();
+        return getPayaraMainDirectoryInDocker().toPath()
+            .resolve(Paths.get("glassfish", "domains", getPayaraDomainName())).toFile();
     }
 
 
@@ -155,10 +158,18 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
 
 
     /**
-     * @return directory containing unpacked application server in docker container
+     * @return main payara directory in docker container
      */
     public File getPayaraMainDirectoryInDocker() {
-        return new File(getMainApplicationDirectoryInDocker(), "payara5");
+        return new File(getMainApplicationDirectoryInDocker(), getPayaraDirectoryName());
+    }
+
+
+    /**
+     * @return main payara directory on the host system.
+     */
+    public File getPayaraMainDirectory() {
+        return new File(getMainApplicationDirectory(), getPayaraDirectoryName());
     }
 
 
@@ -217,5 +228,21 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
      */
     public File getPasswordFileForChangeInDocker() {
         return new File(getMainApplicationDirectoryInDocker(), "passwordfile-change.txt");
+    }
+
+
+    /**
+     * @return which logging implementation to use. Depends on Payara version used.
+     */
+    public boolean isNewLoggingImplementation() {
+        return newLoggingImplementation;
+    }
+
+
+    /**
+     * @param newLoggingImplementation use new or old class names? Depends on Payara version used.
+     */
+    public void setNewLoggingImplementation(boolean newLoggingImplementation) {
+        this.newLoggingImplementation = newLoggingImplementation;
     }
 }

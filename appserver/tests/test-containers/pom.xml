@@ -15,7 +15,10 @@
         <docker.host>host.testcontainers.internal</docker.host>
         <docker.port>2376</docker.port>
         <docker.images.timeoutInSeconds>900</docker.images.timeoutInSeconds>
+
+        <docker.payara.cfg.logging.newImplementation>true</docker.payara.cfg.logging.newImplementation>
         <docker.payara.directory.shared>${project.build.directory}/shared</docker.payara.directory.shared>
+        <docker.payara.domainName>domain1</docker.payara.domainName>
         <docker.payara.image.base>ubuntu:19.10</docker.payara.image.base>
 <!--         <docker.payara.image.base>debian:10.1-slim</docker.payara.image.base> -->
         <docker.payara.image.forceNew>false</docker.payara.image.forceNew>
@@ -25,12 +28,10 @@
         <docker.payara.jvm.xmx>1g</docker.payara.jvm.xmx>
         <docker.payara.jvm.xss>228k</docker.payara.jvm.xss>
         <docker.payara.memory.totalInGB>2</docker.payara.memory.totalInGB>
-        <docker.payara.port.admin>4848</docker.payara.port.admin>
-        <docker.payara.port.http>8080</docker.payara.port.http>
-        <docker.payara.port.https>8181</docker.payara.port.https>
         <docker.payara.host>payara-test-docker</docker.payara.host>
+        <docker.payara.payaraDirectoryName>payara5</docker.payara.payaraDirectoryName>
+        <docker.payara.tag>${docker.payara.version}</docker.payara.tag>
         <docker.payara.version>${project.version}</docker.payara.version>
-        <docker.payara.server-node.tag>latest</docker.payara.server-node.tag>
 
         <docker.mysql.image.forceNew>false</docker.mysql.image.forceNew>
         <docker.mysql.image.base>mysql:8.0.18</docker.mysql.image.base>
@@ -140,7 +141,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- WARNING: unreleased locally built dependency! -->
+        <!-- FIXME: unreleased locally built dependency! -->
         <dependency>
             <groupId>io.github.zforgo.arquillian.junit5</groupId>
             <artifactId>arquillian-junit5-container</artifactId>
@@ -193,7 +194,7 @@
             <!-- depends on JUnit4, which cannot be excluded -->
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.12.2</version>
+            <version>1.13.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -208,8 +209,14 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>1.13.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
-            <version>1.12.2</version>
+            <version>1.13.0</version>
         </dependency>
 
         <dependency>
@@ -413,6 +420,13 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>payara4</id>
+            <properties>
+                <docker.payara.cfg.logging.newImplementation>false</docker.payara.cfg.logging.newImplementation>
+                <docker.payara.domainName>payaradomain</docker.payara.domainName>
+                <docker.payara.payaraDirectoryName>payara41</docker.payara.payaraDirectoryName>
+            </properties>
+        </profile>
     </profiles>
-
 </project>

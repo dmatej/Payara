@@ -42,8 +42,6 @@ package fish.payara.test.containers.tools.container;
 import com.github.dockerjava.api.model.Ulimit;
 
 import java.io.File;
-import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +53,6 @@ import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.utility.MountableFile;
 
@@ -120,14 +117,15 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
 
 
     /**
-     * Returns context to check if the container and application is completely started - then it
-     * should respond with HTTP 200.
-     *
-     * @return slash by default
+     * @return list of internal ports which will be mapped to host port numbers.
      */
-    protected String getWebContextToCheck() {
-        return "/";
-    }
+    protected abstract List<Integer> getExposedInternalPorts();
+
+
+    /**
+     * @return {@link WaitStrategy} to be used to detect that the container started successfully.
+     */
+    protected abstract WaitStrategy getWaitStrategy();
 
 
     /**
@@ -217,17 +215,10 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
             cmd.getHostConfig().withUlimits(new Ulimit[] {new Ulimit("nofile", 4096, 8192)}); //
             cmd.withHostName(this.cfg.getHost());
             cmd.withUser(USERNAME);
+//            cmd.getHostConfig().withCpuQuota(30_000L).withCpuPeriod(200_000L).withMemorySwappiness(0L); // 100_000/150_000
         }); //
 
         container.withCommand("/bin/sh", "-c", getCommand().toString()); //
-    }
-
-
-    /**
-     * @return list of internal ports which will be mapped to host port numbers.
-     */
-    protected List<Integer> getExposedInternalPorts() {
-        return Arrays.asList(getConfiguration().getHttpPort());
     }
 
 
@@ -270,14 +261,5 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
         LOG.debug("startContainer(container={})", container);
         container.waitingFor(getWaitStrategy());
         container.start();
-    }
-
-
-    /**
-     * @return {@link WaitStrategy} to be used to detect that the container started successfully.
-     */
-    protected WaitStrategy getWaitStrategy() {
-        return Wait.forHttp(getWebContextToCheck()).forPort(getConfiguration().getHttpPort()).forStatusCode(200)
-            .withStartupTimeout(Duration.ofSeconds(this.cfg.getStartupTimeout()));
     }
 }

@@ -173,13 +173,15 @@ public class CertificateRealmITest {
         final X509Certificate clientCertificate = createClientCertificate(clientKeyPair);
         clientKeyStore = createClientKeyStore(clientKeyPair.getPrivate(), clientCertificate);
 
-        final PayaraServerFiles payaraFiles = new PayaraServerFiles(testConfiguration.getPayaraDirectory());
+        final PayaraServerFiles payaraFiles = new PayaraServerFiles(testConfiguration.getPayaraDirectory(),
+            testConfiguration.getPayaraDomainName());
         final KeyStoreManager payaraTrustStore = payaraFiles.getTrustStore();
         payaraTrustStore.putTrusted("TestCert", clientCertificate);
         payaraTrustStore.save(payaraFiles.getTrustStoreFile());
 
-        DockerEnvironment.getInstance().getPayaraContainer().asLocalAdmin("restart-domain");
-        DockerEnvironment.getInstance().getPayaraContainer().asAdmin("list-applications", "--subcomponents");
+        final PayaraServerContainer payaraDas = DockerEnvironment.getInstance().getPayaraContainer();
+        payaraDas.asLocalAdmin("restart-domain", testConfiguration.getPayaraDomainName());
+        payaraDas.asAdmin("list-applications", "--subcomponents");
     }
 
 

@@ -97,42 +97,51 @@ public class VerboseLoggingITest {
             das.execInContainer("cp", "-v", //
                 backupLoggingProperties.getAbsolutePath(), cfg.getPayaraLoggingPropertiesInDocker().getAbsolutePath());
         }
-        environment.getPayaraContainer().asLocalAdmin("start-domain");
+        environment.getPayaraContainer().asLocalAdmin("start-domain", cfg.getPayaraDomainName());
         logger.setLevel(originalLevel);
     }
 
 
     @Test
     public void restartDomainWithAllLoggingEnabled() throws Exception {
-        final PayaraServerContainer das = environment.getPayaraContainer();
-        das.asLocalAdmin("stop-domain");
-
         final PayaraServerContainerConfiguration cfg = environment.getConfiguration().getPayaraServerConfiguration();
+        final PayaraServerContainer das = environment.getPayaraContainer();
+        das.asLocalAdmin("stop-domain", cfg.getPayaraDomainName());
+
         final File configDir = cfg.getPayaraLoggingPropertiesInDocker().getParentFile();
         backupLoggingProperties = new File(configDir, "logging.properties.before" + getClass().getSimpleName());
         final String loggingPropertiesPath = cfg.getPayaraLoggingPropertiesInDocker().getAbsolutePath();
         das.execInContainer("cp", "-v", loggingPropertiesPath, backupLoggingProperties.getAbsolutePath());
-        das.execInContainer("cp", "-v", "/logging-everything.properties", loggingPropertiesPath);
+        das.execInContainer("cp", "-v",
+            "/logging-everything-" + (cfg.isNewLoggingImplementation() ? "new" : "old") + ".properties",
+            loggingPropertiesPath);
 
-        assertTimeoutPreemptively(TIMEOUT, () -> das.asLocalAdmin("start-domain"));
+        assertTimeoutPreemptively(TIMEOUT, () -> das.asLocalAdmin("start-domain", cfg.getPayaraDomainName()));
 
         // file system buffering - we are watching from different OS, so we don't have control over this.
         waitWhileServerLogChages(getServerLog(cfg));
         // if the domain started, then it should be able to stop too
-        assertTimeoutPreemptively(TIMEOUT, () -> das.asLocalAdmin("stop-domain"));
+        assertTimeoutPreemptively(TIMEOUT, () -> das.asLocalAdmin("stop-domain", cfg.getPayaraDomainName()));
         // file system buffering - we are watching from different OS, so we don't have control over this.
         waitWhileServerLogChages(getServerLog(cfg));
     }
 
 
     private static File getServerLog(final PayaraServerContainerConfiguration cfg) {
-        return cfg.getPayaraDomainDirectory().toPath().resolve(Paths.get("logs", "server.log")).toFile();
+        final File serverLogFile = cfg.getPayaraDomainDirectory().toPath().resolve(Paths.get("logs", "server.log"))
+            .toFile();
+        if (serverLogFile.canRead()) {
+            return serverLogFile;
+        }
+        throw new IllegalStateException("Cannot be read the file: " + serverLogFile);
     }
 
 
     private static void waitWhileServerLogChages(final File serverLog) throws InterruptedException {
+        final Duration timeout = Duration.ofSeconds(60);
         long lastChange = getLastModified(serverLog);
-        while (true) {
+        long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() < start + timeout.toMillis()) {
             Thread.sleep(2000L);
             final long actualChange = getLastModified(serverLog);
             if (lastChange == actualChange) {
@@ -140,6 +149,8 @@ public class VerboseLoggingITest {
             }
             lastChange = actualChange;
         }
+        throw new IllegalStateException(
+            "The server.log file still changes even after " + timeout.getSeconds() + " seconds.");
     }
 
 

@@ -79,7 +79,7 @@ public abstract class DockerITest {
     @BeforeAll
     public static void initDockerEnvironmentAndRestClientCache() throws Exception {
         LOG.info("initDockerEnvironmentAndRestClientCache()");
-        assertNotNull(DockerEnvironment.getInstance(), "dockerEnvironment");
+        assertNotNull(getDockerEnvironment(), "dockerEnvironment");
         clientCache = new RestClientCache();
     }
 

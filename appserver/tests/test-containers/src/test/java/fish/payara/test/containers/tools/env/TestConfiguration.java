@@ -58,15 +58,15 @@ public final class TestConfiguration {
     private final File buildDirectory;
     private final File classDirectory;
     private final File payaraDirectory;
+    private final String payaraDomainName;
 
     private final String payaraHost;
-    private final int payaraPort;
     private final String payaraUsername;
     private final String payaraPassword;
     private final int jerseyClientConnectionTimeout;
     private final int jerseyClientReadTimeout;
 
-    private final String payaraServerNodeTag;
+    private final String payaraDockerImageTag;
 
 
 
@@ -87,15 +87,24 @@ public final class TestConfiguration {
         this.buildDirectory = properties.getFile("build.directory");
         this.classDirectory = properties.getFile("class.directory");
 
-        this.payaraDirectory = new File(properties.getFile("docker.payara.sharedDirectory"), "payara5");
+        this.payaraDomainName = properties.getString("docker.payara.domainName");
+        this.payaraDirectory = new File(properties.getFile("docker.payara.sharedDirectory"),
+            properties.getString("docker.payara.payaraDirectoryName"));
         this.payaraHost = properties.getString("docker.payara.host");
-        this.payaraPort = properties.getInt("docker.payara.port", 0);
         this.payaraUsername = properties.getString("docker.payara.username");
         this.payaraPassword = properties.getString("docker.payara.password");
-        this.payaraServerNodeTag = properties.getString("docker.payara.server-node.tag", "latest");
+        this.payaraDockerImageTag = properties.getString("docker.payara.tag", "latest");
 
         this.jerseyClientConnectionTimeout = properties.getInt("benchmark.client.timeoutInMillis.connect", 0);
         this.jerseyClientReadTimeout = properties.getInt("benchmark.client.timeoutInMillis.read", 0);
+    }
+
+
+    /**
+     * @return name of the payara domain
+     */
+    public String getPayaraDomainName() {
+        return payaraDomainName;
     }
 
 
@@ -104,14 +113,6 @@ public final class TestConfiguration {
      */
     public String getPayaraHost() {
         return this.payaraHost;
-    }
-
-
-    /**
-     * @return internal port of the application in the docker container.
-     */
-    public int getPayaraPort() {
-        return this.payaraPort;
     }
 
 
@@ -184,8 +185,8 @@ public final class TestConfiguration {
     /**
      * @return tag of the docker image, default is 'latest'
      */
-    public String getPayaraServerNodeTag() {
-        return payaraServerNodeTag;
+    public String getPayaraDockerImageTag() {
+        return payaraDockerImageTag;
     }
 
 

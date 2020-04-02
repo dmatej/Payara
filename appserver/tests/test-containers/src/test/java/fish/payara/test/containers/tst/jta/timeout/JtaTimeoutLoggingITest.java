@@ -159,7 +159,8 @@ public class JtaTimeoutLoggingITest extends DockerITest {
 
         final PayaraServerContainer das = getDockerEnvironment().getPayaraContainer();
         das.asAdmin("set", "configs.config.server-config.transaction-service.timeout-in-seconds=" + TIMEOUT_IN_SECONDS);
-        das.asAdmin("restart-domain");
+        das.asAdmin("restart-domain",
+            getDockerEnvironment().getConfiguration().getPayaraServerConfiguration().getPayaraDomainName());
 
         final String cpPrefix = "jta/timeout/war";
         final WebArchive war = ShrinkWrap.create(WebArchive.class) //

@@ -45,7 +45,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
@@ -87,12 +86,6 @@ public class PayaraServerDockerImageManager
 
 
     @Override
-    protected String getWebContextToCheck() {
-        return "/";
-    }
-
-
-    @Override
     protected PayaraServerContainer createNewContainer() {
         return new PayaraServerContainer(getNameOfPreparedImage(), getConfiguration());
     }
@@ -105,39 +98,44 @@ public class PayaraServerDockerImageManager
     @Override
     protected StringBuilder getCommand() {
         final StringBuilder command = super.getCommand();
-        command.append(" && ls -la ").append(getConfiguration().getMainApplicationDirectoryInDocker());
-        command.append(" && rm -rf ").append(getConfiguration().getPayaraMainDirectoryInDocker()); //
-        command.append(" && unzip ").append(getConfiguration().getPayaraZipFileInDocker()) //
-            .append(" -d ").append(getConfiguration().getMainApplicationDirectoryInDocker());
-        if (getConfiguration().isJaCoCoEnabled()) {
+        final PayaraServerContainerConfiguration cfg = getConfiguration();
+        command.append(" && ls -la ").append(cfg.getMainApplicationDirectoryInDocker());
+        command.append(" && rm -rf ").append(cfg.getPayaraMainDirectoryInDocker()); //
+        command.append(" && unzip ").append(cfg.getPayaraZipFileInDocker()) //
+            .append(" -d ").append(cfg.getMainApplicationDirectoryInDocker());
+        if (cfg.isJaCoCoEnabled()) {
             // FIXME: to lib/domain directory!
-            command.append(" && unzip -o ").append(getConfiguration().getMainApplicationDirectoryInDocker())
-                .append("/org.jacoco.agent-").append(getConfiguration().getJaCoCoVersion()).append(".jar")
-                .append(" \"jacocoagent.jar\" -d ").append(getConfiguration().getMainApplicationDirectoryInDocker()); //
+            command.append(" && unzip -o ").append(cfg.getMainApplicationDirectoryInDocker())
+                .append("/org.jacoco.agent-").append(cfg.getJaCoCoVersion()).append(".jar")
+                .append(" \"jacocoagent.jar\" -d ").append(cfg.getMainApplicationDirectoryInDocker()); //
         }
-        command.append(" && cp /logging.properties ").append(getConfiguration().getPayaraLoggingPropertiesInDocker());
-        command.append(" && ls -la ").append(
-            new File(getConfiguration().getPayaraMainDirectoryInDocker(), "glassfish/domains/domain1/config")); //
+        command.append(" && cp ").append(getSourceLoggingProperties()).append(' ')
+            .append(cfg.getPayaraLoggingPropertiesInDocker());
+        command.append(" && ls -la ").append(new File(cfg.getPayaraDomainDirectoryInDocker(), "config"));
 
-        final File asadmin = getConfiguration().getAsadminFileInDocker();
+        final File asadmin = cfg.getAsadminFileInDocker();
         command.append(" && ").append(asadmin) //
-            .append(" --user admin --passwordfile ").append(getConfiguration().getPasswordFileForChangeInDocker()) //
-            .append(" change-admin-password");
-        command.append(" && ").append(asadmin).append(" start-domain domain1");
+            .append(" --user admin --passwordfile ").append(cfg.getPasswordFileForChangeInDocker()) //
+            .append(" change-admin-password").append(" --domain_name=").append(cfg.getPayaraDomainName());
+        command.append(" && ").append(asadmin).append(" start-domain ").append(cfg.getPayaraDomainName());
         command.append(" && ").append(asadmin) //
-            .append(" --user admin --passwordfile ").append(getConfiguration().getPasswordFileInDocker()) //
+            .append(" --user admin --passwordfile ").append(cfg.getPasswordFileInDocker()) //
             .append(" enable-secure-admin");
-        command.append(" && ").append(asadmin).append(" restart-domain domain1");
+        command.append(" && ").append(asadmin).append(" restart-domain " + cfg.getPayaraDomainName());
         command.append(" && echo '" + PAYARA_DOCKER_IMAGE_STARTED + "'");
-        command.append(" && tail -F ").append(getConfiguration().getPayaraServerLogInDocker()); //
+        command.append(" && tail -F ").append(cfg.getPayaraServerLogInDocker()); //
         return command;
+    }
+
+
+    private String getSourceLoggingProperties() {
+        return "/logging-" + (getConfiguration().isNewLoggingImplementation() ? "new" : "old") + ".properties";
     }
 
 
     @Override
     protected List<Integer> getExposedInternalPorts() {
-        final PayaraServerContainerConfiguration cfg = getConfiguration();
-        return Arrays.asList(cfg.getHttpPort(), cfg.getHttpsPort(), cfg.getAdminPort());
+        return Arrays.asList(TestablePayaraPort.getAllPossiblePortValues());
     }
 
 
@@ -159,8 +157,12 @@ public class PayaraServerDockerImageManager
         // so we will separate this action into two steps:
         // 1) share file with the container
         // 2) copy shared file after we unzip the payara server to the correct place.
-        files.put("/logging.properties", forClasspathResource("server-side/logging.properties"));
-        files.put("/logging-everything.properties", forClasspathResource("server-side/logging-everything.properties"));
+        files.put("/logging-old.properties", forClasspathResource("server-side/logging-old.properties"));
+        files.put("/logging-new.properties", forClasspathResource("server-side/logging-new.properties"));
+        files.put("/logging-everything-old.properties",
+            forClasspathResource("server-side/logging-everything-old.properties"));
+        files.put("/logging-everything-new.properties",
+            forClasspathResource("server-side/logging-everything-new.properties"));
         return files;
     }
 

@@ -53,14 +53,15 @@ import org.testcontainers.shaded.org.apache.commons.lang.builder.ToStringStyle;
  */
 public class JavaContainerConfiguration {
 
+    private final File mainApplicationDirectoryInDocker;
     private String downloadedDockerImageName;
+
     private String jdkPackageId;
     private long preparationTimeout = 60L;
     private File pomFile;
     private File testOutputDirectory;
 
     private String host;
-    private int httpPort;
 
     private int systemMemory;
     private String xms;
@@ -70,6 +71,15 @@ public class JavaContainerConfiguration {
     private File mainApplicationDirectory;
     private String jaCoCoVersion;
     private File jaCoCoReportDirectory;
+
+    /**
+     * Initializes the configuration with main java app directory used in the docker container set
+     * to /shared
+     */
+    public JavaContainerConfiguration() {
+        this.mainApplicationDirectoryInDocker = new File("/shared");
+    }
+
 
     /**
      * Returns a name of the available public docker image name that will be downloaded and cached
@@ -186,22 +196,6 @@ public class JavaContainerConfiguration {
 
 
     /**
-     * @return internal http port used by applications in the docker container.
-     */
-    public int getHttpPort() {
-        return this.httpPort;
-    }
-
-
-    /**
-     * @param port the internal http port used by applications in the docker container
-     */
-    public void setHttpPort(final int port) {
-        this.httpPort = port;
-    }
-
-
-    /**
      * @param systemMemory the amount of container's total system memory in gigabytes
      */
     public void setSystemMemory(final int systemMemory) {
@@ -296,7 +290,7 @@ public class JavaContainerConfiguration {
      * @return path to the directory for the classpath dependencies in the docker filesystem.
      */
     public File getMainApplicationDirectoryInDocker() {
-        return new File("/shared");
+        return this.mainApplicationDirectoryInDocker;
     }
 
     /**

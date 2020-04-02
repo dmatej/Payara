@@ -78,6 +78,22 @@ public class DockerEnvironment implements AutoCloseable {
 
     private final DockerEnvironmentConfiguration cfg;
 
+    private final List<DockerEnvironmentAfterCloseHandler> afterCloseHandlers = new ArrayList<>();
+
+    /**
+     * Creates new singleton instance or throws ISE if it already exists.
+     *
+     * @param cfg configuration of the docker environment
+     * @param afterCloseHandler
+     * @return new instance.
+     * @throws Exception
+     */
+    public static synchronized DockerEnvironment createEnvironment(final DockerEnvironmentConfiguration cfg,
+        final DockerEnvironmentAfterCloseHandler afterCloseHandler) throws Exception {
+        createEnvironment(cfg);
+        environment.addAfterCloseHandler(afterCloseHandler);
+        return environment;
+    }
 
 
     /**
@@ -120,7 +136,8 @@ public class DockerEnvironment implements AutoCloseable {
         this.network = Network.newNetwork();
 
         final List<CompletableFuture<Void>> parallelFutures = new ArrayList<>();
-        Testcontainers.exposeHostPorts(2376);
+        // port of the docker service on the host, some tests use it.
+        Testcontainers.exposeHostPorts(cfg.getPayaraServerConfiguration().getDockerHostAndPort().getPort());
 
         final PayaraServerDockerImageManager payaraServerMgr = //
             new PayaraServerDockerImageManager(this.network, cfg.getPayaraServerConfiguration());
@@ -183,12 +200,22 @@ public class DockerEnvironment implements AutoCloseable {
 
 
     /**
+     * @param handler handler to be called as a last instruction in the {@link #close()} method.
+     */
+    public void addAfterCloseHandler(final DockerEnvironmentAfterCloseHandler handler) {
+        this.afterCloseHandlers.add(handler);
+    }
+
+
+    /**
      * Resets the logging to lighter (benchmarks) or heavier (functionalities) version.
      *
-     * @param fileInContainer
+     * @param newRegimeIsBenchmark
      */
-    public void reconfigureLogging(final File fileInContainer) {
-        this.payaraContainer.reconfigureLogging(fileInContainer);
+    public void reconfigureLogging(final boolean newRegimeIsBenchmark) {
+        final File configDir = new File(cfg.getPayaraServerConfiguration().getPayaraDomainDirectoryInDocker(), "config");
+        this.payaraContainer.reconfigureLogging(
+            new File(configDir, newRegimeIsBenchmark ? "logging-benchmark.properties" : "logging.properties"));
     }
 
 
@@ -216,6 +243,8 @@ public class DockerEnvironment implements AutoCloseable {
         LOG.info("Closing docker containers ...");
         closeSilently(this.payaraContainer);
         closeSilently(this.network);
+        environment = null;
+        this.afterCloseHandlers.stream().forEach(DockerEnvironmentAfterCloseHandler::afterClose);
     }
 
 
@@ -244,5 +273,18 @@ public class DockerEnvironment implements AutoCloseable {
         } catch (final Exception e) {
             LOG.warn("Close method caused an exception.", e);
         }
+    }
+
+    /**
+     * Reaction to the closure of the {@link DockerEnvironment} instance. IE if the reference was
+     * used, it should be reset.
+     */
+    @FunctionalInterface
+    public interface DockerEnvironmentAfterCloseHandler {
+
+        /**
+         * Reaction to the closure of the {@link DockerEnvironment} instance.
+         */
+        void afterClose();
     }
 }

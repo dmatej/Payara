@@ -107,14 +107,15 @@ public class JdbcPoolITest extends DockerITest {
         final PayaraServerContainer payara = environment.getPayaraContainer();
         final MySQLContainer<?> mysql = environment.getMySqlcontainer();
         final MySQLContainerConfiguration mysqlCfg = environment.getConfiguration().getMySQLServerConfiguration();
-        PayaraServerContainerConfiguration payaraConfiguration = environment.getConfiguration().getPayaraServerConfiguration();
+        final PayaraServerContainerConfiguration payaraConfiguration = environment.getConfiguration()
+            .getPayaraServerConfiguration();
 
         final File driverFile = Maven.resolver().loadPomFromFile("pom.xml").resolve("mysql:mysql-connector-java")
             .withoutTransitivity().asSingleFile();
         final File targetFile = new File(payaraConfiguration.getPayaraDomainLibDirectory(), driverFile.getName());
         FileUtils.copyFile(driverFile, targetFile);
         // file is ignored by classloaders until server restart
-        payara.asAdmin("restart-domain");
+        payara.asAdmin("restart-domain", payaraConfiguration.getPayaraDomainName());
 
         final String poolNameBase = "domain-pool-";
         int counter = 1;

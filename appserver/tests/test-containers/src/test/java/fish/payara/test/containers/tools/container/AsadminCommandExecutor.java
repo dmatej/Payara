@@ -53,7 +53,7 @@ import org.testcontainers.containers.Container.ExecResult;
 import static java.util.stream.Stream.of;
 
 /**
- * In container asadmin command executor. Uses asadmin command directly.
+ * In container asadmin command executor. Directly uses the asadmin command.
  *
  * @author David Matejcek
  */

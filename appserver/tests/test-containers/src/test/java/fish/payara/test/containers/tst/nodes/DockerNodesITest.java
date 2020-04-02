@@ -43,6 +43,7 @@ import fish.payara.test.containers.tools.container.AsadminCommandException;
 import fish.payara.test.containers.tools.container.NetworkTarget;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.container.PayaraServerContainerConfiguration;
+import fish.payara.test.containers.tools.container.TestablePayaraPort;
 import fish.payara.test.containers.tools.env.DockerEnvironment;
 import fish.payara.test.containers.tools.env.DockerEnvironmentConfiguration;
 import fish.payara.test.containers.tools.env.TestConfiguration;
@@ -120,7 +121,13 @@ public class DockerNodesITest {
 
     @AfterAll
     public static void deleteDeadContainers() throws Exception {
+        if (environment == null) {
+            return;
+        }
         final PayaraServerContainer domain = environment.getPayaraContainer();
+        if (domain == null) {
+            return;
+        }
         final Set<DockerContainerId> containersAfterTests = getDockerIds();
         for (DockerContainerId id : containersAfterTests) {
             if (containersToPreserve.contains(id)) {
@@ -188,7 +195,7 @@ public class DockerNodesITest {
         domain.asAdmin("create-node-docker", //
             "--dockerPasswordFile", dasConfiguration.getPasswordFile().getAbsolutePath(), //
             "--nodehost", dockerNode.getHost(), "--dockerport", Integer.toString(dockerNode.getPort()), //
-            "--dockerimage", "payara/server-node:" + TestConfiguration.getInstance().getPayaraServerNodeTag(), //
+            "--dockerimage", "payara/server-node:" + TestConfiguration.getInstance().getPayaraDockerImageTag(), //
             nodeName);
 
         final String instanceName = "DockerInstance1";
@@ -270,7 +277,7 @@ public class DockerNodesITest {
         final PayaraServerContainerConfiguration dasCfg = environment.getConfiguration()
             .getPayaraServerConfiguration();
         return "{\n" //
-            + "\"Image\": \"payara/server-node:" + TestConfiguration.getInstance().getPayaraServerNodeTag() + "\",\n" //
+            + "\"Image\": \"payara/server-node:" + TestConfiguration.getInstance().getPayaraDockerImageTag() + "\",\n" //
                 + "\"HostConfig\": {\n" //
                 + "    \"Mounts\": [\n" //
                 + "      {\n" //
@@ -287,7 +294,7 @@ public class DockerNodesITest {
                 + "  },\n" //
                 + "\"Env\": [\n" //
                 + "  \"PAYARA_DAS_HOST=" + dasCfg.getHost() + "\",\n" //
-                + "  \"PAYARA_DAS_PORT=" + dasCfg.getAdminPort() + "\",\n" //
+                + "  \"PAYARA_DAS_PORT=" + TestablePayaraPort.DAS_ADMIN_PORT + "\",\n" //
                 + "  \"PAYARA_NODE_NAME=TempNode1\"\n" //
                 + "]\n" //
                 + "}";

@@ -87,9 +87,9 @@ public final class DockerEnvironmentConfigurationParser {
         cfg.setPomFile(properties.getFile("build.pomFile"));
 
         cfg.setHost(properties.getString("docker.payara.host"));
-        cfg.setAdminPort(properties.getInt("docker.payara.port.admin", 4848));
-        cfg.setHttpPort(properties.getInt("docker.payara.port.http", 8080));
-        cfg.setHttpsPort(properties.getInt("docker.payara.port.https", 8181));
+        cfg.setPayaraDirectoryName(properties.getString("docker.payara.payaraDirectoryName", "payara"));
+        cfg.setPayaraDomainName(properties.getString("docker.payara.domainName", "domain1"));
+        cfg.setNewLoggingImplementation(properties.getBoolean("docker.payara.cfg.logging.newImplementation", true));
 
         cfg.setSystemMemory(properties.getInt("docker.payara.memory.totalInGB", 1));
         cfg.setXms(properties.getString("docker.payara.jvm.xms"));

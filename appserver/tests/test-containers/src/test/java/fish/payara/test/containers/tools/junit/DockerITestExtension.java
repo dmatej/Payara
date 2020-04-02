@@ -40,11 +40,11 @@
 package fish.payara.test.containers.tools.junit;
 
 import fish.payara.test.containers.tools.env.DockerEnvironment;
+import fish.payara.test.containers.tools.env.DockerEnvironment.DockerEnvironmentAfterCloseHandler;
 import fish.payara.test.containers.tools.env.DockerEnvironmentConfiguration;
 import fish.payara.test.containers.tools.env.DockerEnvironmentConfigurationParser;
 import fish.payara.test.containers.tools.properties.Properties;
 
-import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -67,19 +67,18 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
  * @author David Matějček
  */
 public class DockerITestExtension
-    implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, AfterAllCallback {
+    implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, AfterAllCallback,
+    DockerEnvironmentAfterCloseHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(DockerITestExtension.class);
     private static final String START_TIME_METHOD = "start time method";
     private static final String START_TIME_CLASS = "start time class";
-    private static final File LOGGING_PROPERTIES_BENCH_CONTAINER_PATH = new File(
-        "/payara/glassfish/domain1/config/logging-benchmark.properties");
-    private static final File LOGGING_PROPERTIES_CONTAINER_PATH = new File(
-        "/payara/glassfish/domain1/config/logging.properties");
-    private static boolean alreadyTried = false;
-    private static boolean inBenchmarkRegime = false;
+    private static boolean alreadyTried;
+    private static boolean inBenchmarkRegime;
     private Namespace namespaceClass;
     private Namespace namespaceMethod;
+    private Thread hook;
+    private boolean shutdownInProgress;
 
     static {
         SLF4JBridgeHandler.removeHandlersForRootLogger();
@@ -98,10 +97,12 @@ public class DockerITestExtension
             if (DockerEnvironment.getInstance() == null) {
                 final Properties properties = new Properties("test.properties");
                 final DockerEnvironmentConfiguration cfg = DockerEnvironmentConfigurationParser.parse(properties);
-                final DockerEnvironment dockerEnvironment = DockerEnvironment.createEnvironment(cfg);
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                final DockerEnvironment dockerEnvironment = DockerEnvironment.createEnvironment(cfg, this);
+                this.hook = new Thread(() -> {
+                    this.shutdownInProgress = true;
                     dockerEnvironment.close();
-                }));
+                });
+                Runtime.getRuntime().addShutdownHook(hook);
             }
         }
         final boolean newRegimeIsBenchmark = context.getTags().contains("benchmark");
@@ -110,6 +111,16 @@ public class DockerITestExtension
             changeLoggingRegime(newRegimeIsBenchmark);
         }
         context.getStore(this.namespaceClass).put(START_TIME_CLASS, LocalDateTime.now());
+    }
+
+
+    @Override
+    public void afterClose() {
+        if (!this.shutdownInProgress) {
+            Runtime.getRuntime().removeShutdownHook(this.hook);
+        }
+        this.hook = null;
+        alreadyTried = false;
     }
 
 
@@ -158,8 +169,7 @@ public class DockerITestExtension
     private void changeLoggingRegime(final boolean newRegimeIsBenchmark) {
         final DockerEnvironment environment = DockerEnvironment.getInstance();
         if (environment != null) {
-            environment.reconfigureLogging(
-                newRegimeIsBenchmark ? LOGGING_PROPERTIES_BENCH_CONTAINER_PATH : LOGGING_PROPERTIES_CONTAINER_PATH);
+            environment.reconfigureLogging(newRegimeIsBenchmark);
         }
     }
 }
