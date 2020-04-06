@@ -1203,19 +1203,19 @@
     <auth-method>BASIC</auth-method>
   </login-config>
 
-    <security-constraint>
-        <web-resource-collection>
-            <web-resource-name>metrics</web-resource-name>
-            <url-pattern>/metrics</url-pattern>
-            <http-method>GET</http-method>
-        </web-resource-collection>
-        <auth-constraint>
-            <role-name>asadmin</role-name>
-        </auth-constraint>
-    </security-constraint>
+  <security-constraint>
+    <web-resource-collection>
+      <web-resource-name>metrics</web-resource-name>
+      <url-pattern>/metrics</url-pattern>
+      <http-method>GET</http-method>
+    </web-resource-collection>
+    <auth-constraint>
+      <role-name>asadmin</role-name>
+    </auth-constraint>
+  </security-constraint>
 
-    <security-role>
-        <role-name>asadmin</role-name>
-    </security-role>
+  <security-role>
+    <role-name>asadmin</role-name>
+  </security-role>
 </web-app>
 

@@ -27,6 +27,8 @@ import javax.servlet.http.HttpServletResponse;
  * @author Arjan Tijms
  */
 public class CustomSAM implements ServerAuthModule {
+    public static final String RESPONSE_CUSTOMSAM_INVOKED = "CustomSAM.validateRequest invoked!\n";
+
     private static final Logger LOG = Logger.getLogger(CustomSAM.class.getName());
 
     private final Class<?>[] supportedMessageTypes = new Class[] {HttpServletRequest.class, HttpServletResponse.class};
@@ -46,7 +48,7 @@ public class CustomSAM implements ServerAuthModule {
 
         HttpServletResponse response = (HttpServletResponse) messageInfo.getResponseMessage();
         try {
-            response.getWriter().write("validateRequest invoked X\n");
+            response.getWriter().write(RESPONSE_CUSTOMSAM_INVOKED);
 
             boolean isMandatory = Boolean
                 .valueOf((String) messageInfo.getMap().get("javax.security.auth.message.MessagePolicy.isMandatory"));

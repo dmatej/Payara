@@ -143,10 +143,17 @@ public class RestClientCache implements Closeable {
     }
 
 
+    /**
+     * Closes all cached clients.
+     * <p>
+     * This makes this instance reset to the state after creation (except internal capacity
+     * of the cache).
+     */
     @Override
     public void close() {
         LOG.debug("close()");
         this.cache.values().stream().forEach(Client::close);
+        this.cache.clear();
     }
 
     private static final class ClientCacheKey {
