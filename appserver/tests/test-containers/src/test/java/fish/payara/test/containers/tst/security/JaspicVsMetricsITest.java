@@ -40,11 +40,13 @@
 
 package fish.payara.test.containers.tst.security;
 
+import fish.payara.test.containers.tools.container.AsadminCommandExecutor;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.container.PayaraServerFiles;
 import fish.payara.test.containers.tools.env.DockerEnvironment;
 import fish.payara.test.containers.tools.env.TestConfiguration;
 import fish.payara.test.containers.tools.junit.DockerITestExtension;
+import fish.payara.test.containers.tools.junit.WaitForExecutable;
 import fish.payara.test.containers.tools.rs.RestClientCache;
 import fish.payara.test.containers.tst.security.jar.jaspic.CustomSAM;
 import fish.payara.test.containers.tst.security.war.jaspic.servlet.PublicServlet;
@@ -54,7 +56,18 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
@@ -63,15 +76,15 @@ import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.utility.MountableFile;
 
+import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_ADMIN_PORT;
+import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_HTTPS_PORT;
 import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_HTTP_PORT;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -94,6 +107,9 @@ public class JaspicVsMetricsITest {
     private static final String WAR_ROOT_CTX = "/jaspic-lifecycle";
     private static final Logger LOG = LoggerFactory.getLogger(JaspicVsMetricsITest.class);
 
+    private static final String USER_NAME = "test";
+    // must be same as in passwordfile-user.txt
+    private static final String USER_PASSWORD = "admin123";
     private static final TestConfiguration TEST_CFG = TestConfiguration.getInstance();
     private static final Class<CustomSAM> CLASS_AUTHMODULE = CustomSAM.class;
     private static final Class<PublicServlet> CLASS_WAR = PublicServlet.class;
@@ -151,38 +167,16 @@ public class JaspicVsMetricsITest {
     }
 
 
-    @Test
-    public void testJaspicEnabledApp() throws Exception {
-        JaspicVsMetricsITest.payara.copyFileToContainer(MountableFile.forHostPath(jarFileOnHost.getAbsolutePath()),
-            jarFileOnServer.getAbsolutePath());
-        JaspicVsMetricsITest.payara.copyFileToContainer(MountableFile.forHostPath(warFileOnHost.getAbsolutePath()),
-            warFileOnServer.getAbsolutePath());
-
-        JaspicVsMetricsITest.payara.asAdmin("create-node-ssh", "--nodehost=localhost", "local-node-ssh");
-        JaspicVsMetricsITest.payara.asAdmin("copy-config", "default-config", "cluster-config");
-        JaspicVsMetricsITest.payara.asAdmin("create-cluster", "--config=cluster-config", "cluster");
-        JaspicVsMetricsITest.payara.asAdmin("create-instance", "--cluster=cluster", "--node=local-node-ssh", "inst1");
-        JaspicVsMetricsITest.payara.asAdmin("start-cluster", "cluster");
-        JaspicVsMetricsITest.payara.asAdmin("create-message-security-provider", "--classname=" + CLASS_AUTHMODULE.getName(),
-            "--isdefaultprovider=true", "--layer=HttpServlet", "--providertype=server", "--target=cluster-config",
-            "TestSAM");
-
-        assertNull(get(), "First response before deployment should be HTTP 404,"
-            + " but somehow initialized default SAM on broken versions.");
-        JaspicVsMetricsITest.payara.asAdmin("deploy", "--contextroot=" + WAR_ROOT_CTX, "--target=cluster",
-            warFileOnServer.getAbsolutePath());
-
-        while (true) {
-            final String response = get();
-            if (response == null) {
-                Thread.sleep(1000L);
-                continue;
-            }
-            assertNotNull(response, "Second response.");
-        }
+    @AfterAll
+    public static void cleanupAfterTest() throws Exception {
+        RS_CLIENTS.close();
+        payara.asLocalAdmin("stop-domain", TEST_CFG.getPayaraDomainName());
+        payara.asLocalAdmin("restore-domain", TEST_CFG.getPayaraDomainName());
+        payara.asLocalAdmin("start-domain", TEST_CFG.getPayaraDomainName());
     }
 
 
+    // FIXME: assertions for all commands!
     @Test
     public void testProtectedMetrics() throws Throwable {
         payara.asAdmin("create-virtual-server", "--property", "authRealm=admin-realm", "--hosts", "localhost",
@@ -219,7 +213,6 @@ public class JaspicVsMetricsITest {
             assertThat("response.text", stringEntity, containsString("HTTP Status 401 - Unauthorized"));
         }
     }
-
 
 
     private String get() throws IOException {

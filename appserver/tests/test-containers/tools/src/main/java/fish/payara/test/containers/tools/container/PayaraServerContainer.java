@@ -96,6 +96,12 @@ public class PayaraServerContainer extends PayaraContainer<PayaraServerContainer
     }
 
 
+    // FIXME delete after making paths public
+    public PayaraServerContainerConfiguration getConfiguration() {
+        return this.configuration;
+    }
+
+
     /**
      * @return {@link URL}, where tests can access the domain admin port.
      */

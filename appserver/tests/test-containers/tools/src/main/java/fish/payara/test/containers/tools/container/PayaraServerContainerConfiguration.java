@@ -209,7 +209,7 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
 
 
     /**
-     * @return absolute path to the passwordfile-user.txt in docker container
+     * @return absolute path to the passwordfile used to change the default empty password
      */
     public File getPasswordFileForUserInDocker() {
         return new File(getMainApplicationDirectoryInDocker(), "passwordfile-user.txt");
