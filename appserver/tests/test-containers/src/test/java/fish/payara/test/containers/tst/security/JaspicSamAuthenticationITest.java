@@ -188,7 +188,6 @@ public class JaspicSamAuthenticationITest {
         payara.asLocalAdmin("deploy", "--contextroot=" + WAR_ROOT_CTX, "--target=cluster",
             warFileOnServer.getAbsolutePath());
 
-        Thread.sleep(5000L);
         final ExecResult protectedServletResp = payara.execInContainer("curl", "-s", "-G", "--http1.1",
             protectedServletUrl.toExternalForm());
         assertAll( //

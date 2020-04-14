@@ -66,8 +66,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container.ExecResult;
 
 import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_ADMIN_PORT;
@@ -89,11 +87,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // PAYARA-3515
 @ExtendWith(DockerITestExtension.class)
 public class MetricsSecurityITest {
-    private static final Logger LOG = LoggerFactory.getLogger(MetricsSecurityITest.class);
 
     private static final String USER_NAME = "test";
     // must be same as in passwordfile-user.txt
     private static final String USER_PASSWORD = "admin123";
+    private static final String RESP_TEXT_SNIPPET = "cpu_system";
+    private static final String RESP_JSON_SNIPPET = "cpu.systemLoadAverage";
+
     private static final TestConfiguration TEST_CFG = TestConfiguration.getInstance();
     private static final RestClientCache RS_CLIENTS = new RestClientCache(createSslContext());
 
@@ -127,7 +127,6 @@ public class MetricsSecurityITest {
     }
 
 
-    // FIXME: assertions for all commands!
     @Test
     public void testProtectedMetrics() throws Throwable {
         payara.asLocalAdmin("start-domain", TEST_CFG.getPayaraDomainName());
@@ -175,7 +174,7 @@ public class MetricsSecurityITest {
             "--user", USER_NAME + ":" + USER_PASSWORD, "https://localhost:" + DAS_HTTPS_PORT + "/metrics/base");
         assertAll("auth.curl.stdErr: \n" + result.getStderr(),
             () -> assertThat("auth.curl.exitCode", result.getExitCode(), equalTo(0)), //
-            () -> assertThat("auth.curl.stdOut", result.getStdout(), containsString("base_cpu_systemLoadAverage")) //
+            () -> assertThat("auth.curl.stdOut", result.getStdout(), containsString(RESP_TEXT_SNIPPET)) //
         );
     }
 
@@ -183,14 +182,14 @@ public class MetricsSecurityITest {
     private void checkAuthorizedJerseyTextRequest() throws Exception {
         // default header was a problem for Payara until CUSTCOM-254
         final String responseBody = doAuthorizedJerseyRequest(null);
-        assertThat("auth.jersey.entity", responseBody, containsString("base_cpu_systemLoadAverage"));
+        assertThat("auth.jersey.text.entity", responseBody, containsString(RESP_TEXT_SNIPPET));
 
     }
 
 
     private void checkAuthorizedJerseyJsonRequest() throws Exception {
         final String responseBody = doAuthorizedJerseyRequest(MediaType.APPLICATION_JSON_TYPE);
-        assertThat("auth.jersey.entity", responseBody, containsString("cpu.systemLoadAverage"));
+        assertThat("auth.jersey.json.entity", responseBody, containsString(RESP_JSON_SNIPPET));
     }
 
 
