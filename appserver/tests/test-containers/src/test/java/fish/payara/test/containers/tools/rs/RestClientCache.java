@@ -58,8 +58,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Clients are {@link Closeable}, thread-safe, and expensive.
- * This is a simple cache for test clients.
+ * The {@link Client} does not implement {@link Closeable} (but they are closeable), thread-safe,
+ * and expensive.
+ * <p>
+ * This is a simple cache for test clients - you don't need to close them or recreate them. <br>
+ * The cache is useful only for testing where you have only a limited set of variants of clients.
+ * <p>
+ * The {@link #close()} method closes all provided clients.
  *
  * @author David Matějček
  */

@@ -34,8 +34,10 @@
 
 package fish.payara.test.containers.tst.nodes;
 
-import com.github.dockerjava.api.model.ContainerNetwork;
+import com.github.dockerjava.api.model.Network.Ipam;
+import com.github.dockerjava.api.model.Network.Ipam.Config;
 
+import fish.payara.logging.jul.formatter.ODLLogFormatter;
 import fish.payara.test.containers.tools.container.DasCfg;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.container.TestablePayaraPort;
@@ -48,7 +50,6 @@ import fish.payara.test.containers.tst.log.war.LoggingRestEndpoint;
 import java.io.File;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -69,6 +70,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,14 +79,20 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
+ * TODO: Split to some appropriate tests using the knowledge gained here.
+ *       Reason: Micro does not support set-log-x commands.
+ *
  * @author David Matejcek
  */
 @Testcontainers
+@Disabled
 public class PayaraMicroLoggingReconfigurationITest {
 
     private static final Logger LOG = LoggerFactory.getLogger(PayaraMicroLoggingReconfigurationITest.class);
@@ -102,7 +110,13 @@ public class PayaraMicroLoggingReconfigurationITest {
         .stream(new String[] {"STDERR:   akjaskjf" //
         }).collect(Collectors.toSet());
 
-    private static final Network NET = Network.newNetwork();
+    private static final Network NET = Network.builder().createNetworkCmdModifier(cmd -> {
+        final Config config = new Config().withGateway("172.234.254.1").withSubnet("172.234.254.0/16")
+            .withIpRange("172.234.254.0/24");
+        final Ipam ipam = new Ipam().withConfig(config);
+        cmd.withIpam(ipam);
+        cmd.withDriver("bridge");
+    }).build();
     private static final RestClientCache RS_CLIENTS = new RestClientCache();
 
     private static File warFileOnHost;
@@ -124,7 +138,8 @@ public class PayaraMicroLoggingReconfigurationITest {
         .withNetwork(NET).withNetworkMode("bridge").withNetworkAliases(CFG_MIC.getHost()) //
         .withExposedPorts(TestablePayaraPort.getMicroPortValues()).withLogConsumer(new Slf4jLogConsumer(LOG_MICRO))
         .withFileSystemBind(warFileOnHost.getAbsolutePath(), warFileInMicro.getAbsolutePath())
-        .withEnv("PAYARA_ARGS", "--clustermode domain:" + CFG_DAS.getHost() + ":4900"
+        .withEnv("PAYARA_ARGS", //
+            "--clustermode dns:" + CFG_DAS.getHost() + ":4900," + CFG_MIC.getHost() + ":6900"
             + " --hzPublicAddress " + CFG_MIC.getHost()
             + " --name MicroTest --deploy " + warFileInMicro.getAbsolutePath() + " --contextRoot /logging")
         .waitingFor(Wait.forLogMessage(".*Payara Micro.+ ready.+\\n", 1).withStartupTimeout(Duration.ofSeconds(30L)));
@@ -170,41 +185,60 @@ public class PayaraMicroLoggingReconfigurationITest {
     @AfterAll
     public static void close() {
         RS_CLIENTS.close();
+        NET.close();
     }
 
 
     @Test
     public void testSetLogLevels() throws Throwable {
+        das.asAdmin("set-hazelcast-configuration", "--clustermode", "dns", "--dnsmembers",
+            CFG_DAS.getHost() + ":4900," + CFG_MIC.getHost() + ":6900");
         WaitForExecutable.waitFor(
             () -> assertThat(das.asAdmin("list-hazelcast-cluster-members"), StringContains.containsString(WEBAPP_NAME)),
             15000L);
-        final Client client = RS_CLIENTS.getNonPreemptiveClient(true, null, null);
-        final WebTarget target = client.target(micro.getHttpUrl().toURI()).path("logging").path("sample");
-        final Response response = target.request().post(Entity.entity("", MediaType.TEXT_PLAIN_TYPE));
-        // TODO: check response and log
 
-        final Collection<ContainerNetwork> microIpAddresses = micro.getContainerInfo().getNetworkSettings()
-            .getNetworks().values();
-        LOG.info("Micro network addresses: {}",
-            microIpAddresses.stream().map(ContainerNetwork::getIpAddress).collect(Collectors.toList()));
-        final String microIpAddress = microIpAddresses.iterator().next().getIpAddress();
-        das.asAdmin("send-asadmin-command", "--explicitTarget=" + microIpAddress + ":6900:MicroTest", //
+        final String microExplicitTarget = getExplicitTarget();
+
+        callServlet();
+        // TODO replace with waiting for log
+        Thread.sleep(100L);
+        // TODO: check log
+
+        final String setLogLevelResult = das.asAdmin("send-asadmin-command", "--explicitTarget=" + microExplicitTarget, //
             "--logOutput=true",
             "--command=set-log-levels", LoggingRestEndpoint.class.getName() + "=FINE");
-        // TODO assert
+        assertEquals("Command executed successfully", setLogLevelResult);
 
-        // TODO replace with waiting for log
-        Thread.sleep(300L);
+        callServlet();
+        // TODO: check log
 
-        final Response response2 = target.request().post(Entity.entity("", MediaType.TEXT_PLAIN_TYPE));
-        // TODO: check response2 and log
-
-        Thread.sleep(100L);
-
-        String response3 = das.asAdmin("send-asadmin-command", "--explicitTarget=" + microIpAddress + ":6900:MicroTest",
+        final String setLogAttrResult = das.asAdmin("send-asadmin-command", "--explicitTarget=" + microExplicitTarget,
             "--command=set-log-attributes", "handlers=java.util.logging.ConsoleHandler"
-                + ":java.util.logging.ConsoleHandler.formatter=com.sun.enterprise.server.logging.ODLLogFormatter"
-                + ":com.sun.enterprise.server.logging.ODLLogFormatter.ansiColor=true");
-        Thread.sleep(100L);
+                + ":java.util.logging.ConsoleHandler.formatter=" + ODLLogFormatter.class.getName()
+                + ":" + ODLLogFormatter.class.getName() + ".ansiColor=true");
+        assertEquals("Command executed successfully", setLogAttrResult);
+        callServlet();
+        // TODO: check log
+    }
+
+
+    private void callServlet() throws Exception {
+        final Client client = RS_CLIENTS.getNonPreemptiveClient(true, null, null);
+        final WebTarget target = client.target(micro.getHttpUrl().toURI()).path("logging").path("sample");
+        final Response response1 = target.request().post(Entity.entity("", MediaType.TEXT_PLAIN_TYPE));
+        assertEquals(204, response1.getStatus(), "Servlet response status code");
+    }
+
+
+    private String getExplicitTarget() throws Throwable {
+        final String microClusterMemberResponse = das.asAdmin("list-hazelcast-cluster-members", "--type", "micro");
+        assertThat(microClusterMemberResponse, StringContains.containsString(WEBAPP_NAME));
+        final String[] lines = microClusterMemberResponse.split("\n");
+        assertEquals(2, lines.length, "list-hazelcast-cluster-members - lines: " + Arrays.toString(lines));
+        final String[] columns = lines[lines.length - 1].split("[ ]+");
+        assertEquals(12, columns.length, "list-hazelcast-cluster-members - columns: " + Arrays.toString(columns));
+        // column 4, skip '/' prefix
+        final String microIpAddress = columns[3].substring(1);
+        return microIpAddress + ":6900:MicroTest";
     }
 }
