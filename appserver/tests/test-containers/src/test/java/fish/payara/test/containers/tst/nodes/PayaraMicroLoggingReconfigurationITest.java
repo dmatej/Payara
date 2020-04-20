@@ -138,10 +138,10 @@ public class PayaraMicroLoggingReconfigurationITest {
         .withNetwork(NET).withNetworkMode("bridge").withNetworkAliases(CFG_MIC.getHost()) //
         .withExposedPorts(TestablePayaraPort.getMicroPortValues()).withLogConsumer(new Slf4jLogConsumer(LOG_MICRO))
         .withFileSystemBind(warFileOnHost.getAbsolutePath(), warFileInMicro.getAbsolutePath())
-        .withEnv("PAYARA_ARGS", //
-            "--clustermode dns:" + CFG_DAS.getHost() + ":4900," + CFG_MIC.getHost() + ":6900"
-            + " --hzPublicAddress " + CFG_MIC.getHost()
-            + " --name MicroTest --deploy " + warFileInMicro.getAbsolutePath() + " --contextRoot /logging")
+        .withCommand( //
+            "--clustermode", "dns:" + CFG_DAS.getHost() + ":4900," + CFG_MIC.getHost() + ":6900",
+            "--hzPublicAddress", CFG_MIC.getHost(),
+            "--name", "MicroTest", "--deploy", warFileInMicro.getAbsolutePath(), "--contextRoot", "/logging")
         .waitingFor(Wait.forLogMessage(".*Payara Micro.+ ready.+\\n", 1).withStartupTimeout(Duration.ofSeconds(30L)));
 
     private EventCollectorAppender microLog;
@@ -193,6 +193,7 @@ public class PayaraMicroLoggingReconfigurationITest {
     public void testSetLogLevels() throws Throwable {
         das.asAdmin("set-hazelcast-configuration", "--clustermode", "dns", "--dnsmembers",
             CFG_DAS.getHost() + ":4900," + CFG_MIC.getHost() + ":6900");
+        // FIXME: if there are other tests running before this, das has also another IP (why?)
         WaitForExecutable.waitFor(
             () -> assertThat(das.asAdmin("list-hazelcast-cluster-members"), StringContains.containsString(WEBAPP_NAME)),
             15000L);
