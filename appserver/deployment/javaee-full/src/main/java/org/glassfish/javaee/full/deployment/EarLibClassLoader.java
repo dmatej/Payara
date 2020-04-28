@@ -51,40 +51,42 @@ import java.util.List;
 
 /**
  * Classloader that is responsible to load the ear libraries (lib/*.jar etc)
- *
  */
-public class EarLibClassLoader extends ASURLClassLoader
-{
+public class EarLibClassLoader extends ASURLClassLoader {
+
     public EarLibClassLoader(URL[] urls, ClassLoader classLoader) {
-        super(classLoader); 
+        super(classLoader);
         enableCurrentBeforeParent();
         for (URL url : urls) {
             super.addURL(url);
         }
     }
 
+    @Override
+    protected String getClassLoaderName() {
+        return "EarLibClassLoader";
+    }
+
     /**
      * The below loads services from META-INF from the libraries,
      * so we want to take these from the EAR libraries,
      * this does similar to what WebappClassLoader does
-     * 
+     *
      * @param name
      * @return set of resources URLSs
-     * @throws IOException 
+     * @throws IOException
      */
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
         Enumeration<URL> localResources = super.getResources(name);
         Enumeration<URL> parentResources = getParent().getResources(name);
-        
-        Enumeration<URL> combined = Collections.emptyEnumeration();
-        
-        Enumeration<URL> combinedResources = currentBeforeParentEnabled?
+
+        Enumeration<URL> combinedResources = isCurrentBeforeParentEnabled() ?
                         combineEnumerations(localResources, parentResources):
                         combineEnumerations(parentResources, localResources);
         return combinedResources;
     }
-    
+
     private Enumeration<URL> combineEnumerations(Enumeration<URL> first, Enumeration<URL> second) {
         List<URL> combinedList = new ArrayList<>();
         while (first.hasMoreElements()) {
@@ -94,10 +96,5 @@ public class EarLibClassLoader extends ASURLClassLoader
             combinedList.add(second.nextElement());
         }
         return Collections.enumeration(combinedList);
-    }
-
-    @Override
-    protected String getClassLoaderName() {
-        return "EarLibClassLoader";
     }
 }

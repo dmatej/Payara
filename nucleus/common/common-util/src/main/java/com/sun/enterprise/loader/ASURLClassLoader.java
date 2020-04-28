@@ -500,7 +500,9 @@ public class ASURLClassLoader extends CurrentBeforeParentClassLoader
                     continue;
                 }
                 final URL url = findResource0(u, name);
-                if (url != null) return url;
+                if (url != null) {
+                    return url;
+                }
             }
         }
 
@@ -570,15 +572,21 @@ public class ASURLClassLoader extends CurrentBeforeParentClassLoader
      */
     private void checkManifest(JarFile jar, File file) throws IOException {
 
-        if ( (jar == null) || (file == null) ) return;
+        if (jar == null || file == null) {
+            return;
+        }
 
         Manifest man = jar.getManifest();
-        if (man == null) return;
+        if (man == null) {
+            return;
+        }
 
         synchronized (this) {
             String cp = man.getMainAttributes().getValue(
                                         Attributes.Name.CLASS_PATH);
-            if (cp == null) return;
+            if (cp == null) {
+                return;
+            }
 
             StringTokenizer st = new StringTokenizer(cp, " ");
 
@@ -666,8 +674,9 @@ public class ASURLClassLoader extends CurrentBeforeParentClassLoader
 
         PermissionCollection cachedPc =
             permissionsHolder.getCachedPerms(codeSource);
-        if (cachedPc != null)
+        if (cachedPc != null) {
             return cachedPc;
+        }
 
         return permissionsHolder.getPermissions(
                 codeSource, super.getPermissions(codeSource));
@@ -829,18 +838,16 @@ public class ASURLClassLoader extends CurrentBeforeParentClassLoader
     }
 
     /**
-     * Returns a string representation of this class loader.
-     *
-     * @return   a string representation of this class loader
+     * Returns a string representation of this class loader
      */
     @Override
     public String toString() {
         StringBuilder buffer = new StringBuilder();
         buffer.append(getClassLoaderName()).append(" : \n");
-        if( doneCalled ) {
-            buffer.append("doneCalled = true" + "\n");
+        if (doneCalled) {
+            buffer.append("doneCalled = true\n");
             String snapshot = doneSnapshot; // MUST use temp for thread safety; could go null after checking
-            if( snapshot != null ) {
+            if (snapshot != null) {
                 buffer.append("doneSnapshot = ").append(snapshot);
             }
         } else {
