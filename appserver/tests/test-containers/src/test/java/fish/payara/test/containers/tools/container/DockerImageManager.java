@@ -131,7 +131,7 @@ public abstract class DockerImageManager {
 
 
     private static String getNewImageName(final String originalImageName) {
-        return originalImageName.replaceAll("\\:", "\\-").concat("-for-payara-tests:latest");
+        return originalImageName.replaceAll("[:./]+", "\\-").toLowerCase().concat("-for-payara-tests:latest");
     }
 
 
@@ -171,7 +171,7 @@ public abstract class DockerImageManager {
 
         final ImageFromDockerfile image = new ImageFromDockerfile(this.imgNamePrepared, false) //
             .withDockerfileFromBuilder(builder -> {
-                builder.from(this.imgNameDownloaded).run(getInstallCommand()).build();
+                builder.from(this.imgNameDownloaded).user("root").run(getInstallCommand()).build();
             });
         try {
             final String result = image.get();

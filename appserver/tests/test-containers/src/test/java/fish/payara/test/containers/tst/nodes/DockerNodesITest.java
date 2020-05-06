@@ -190,12 +190,13 @@ public class DockerNodesITest {
         // we use same computer as DAS for simplicity - in fact it is still host's docker.
         final DockerEnvironmentConfiguration dockerConfiguration = environment.getConfiguration();
         final PayaraServerContainerConfiguration dasConfiguration = dockerConfiguration.getPayaraServerConfiguration();
+        final TestConfiguration testConfiguration = TestConfiguration.getInstance();
         final NetworkTarget dockerNode = dasConfiguration.getDockerHostAndPort();
         final String nodeName = "DockerNode1";
         domain.asAdmin("create-node-docker", //
             "--dockerPasswordFile", dasConfiguration.getPasswordFile().getAbsolutePath(), //
             "--nodehost", dockerNode.getHost(), "--dockerport", Integer.toString(dockerNode.getPort()), //
-            "--dockerimage", "payara/server-node:" + TestConfiguration.getInstance().getPayaraDockerImageTag(), //
+            "--dockerimage", "payara/server-node:" + testConfiguration.getPayaraDockerImageTag(), //
             nodeName);
 
         final String instanceName = "DockerInstance1";
@@ -230,7 +231,7 @@ public class DockerNodesITest {
         final String[] nodes = listNodesResponse.split("\n");
         assertThat("nodes", nodes, arrayWithSize(2)); //
         assertAll( //
-            () -> assertThat("nodes[0]", nodes[0], equalTo("localhost-domain1")), //
+            () -> assertThat("nodes[0]", nodes[0], equalTo("localhost-" + testConfiguration.getPayaraDomainName())), //
             () -> assertThat("nodes[1]", nodes[1], equalTo(nodeName)) //
         ); //
 

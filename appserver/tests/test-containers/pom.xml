@@ -18,20 +18,19 @@
 
         <docker.payara.cfg.logging.newImplementation>true</docker.payara.cfg.logging.newImplementation>
         <docker.payara.directory.shared>${project.build.directory}/shared</docker.payara.directory.shared>
-        <docker.payara.domainName>domain1</docker.payara.domainName>
-        <docker.payara.image.base>ubuntu:19.10</docker.payara.image.base>
-<!--         <docker.payara.image.base>debian:10.1-slim</docker.payara.image.base> -->
+        <docker.payara.domainName>production</docker.payara.domainName>
+
+        <docker.payara.version>${project.version}</docker.payara.version>
+        <docker.payara.tag>${docker.payara.version}</docker.payara.tag>
+        <docker.payara.image.base>payara/server-full:${docker.payara.tag}</docker.payara.image.base>
         <docker.payara.image.forceNew>false</docker.payara.image.forceNew>
-        <docker.payara.jdkPackageId>openjdk-8-jdk-headless</docker.payara.jdkPackageId>
-<!--         <docker.payara.jdkPackageId>openjdk-11-jdk-headless</docker.payara.jdkPackageId> -->
+
         <docker.payara.jvm.xms>256m</docker.payara.jvm.xms>
         <docker.payara.jvm.xmx>1g</docker.payara.jvm.xmx>
         <docker.payara.jvm.xss>228k</docker.payara.jvm.xss>
         <docker.payara.memory.totalInGB>2</docker.payara.memory.totalInGB>
         <docker.payara.host>payara-test-docker</docker.payara.host>
-        <docker.payara.payaraDirectoryName>payara5</docker.payara.payaraDirectoryName>
-        <docker.payara.tag>${docker.payara.version}</docker.payara.tag>
-        <docker.payara.version>${project.version}</docker.payara.version>
+        <docker.payara.payaraDirectoryName>payara</docker.payara.payaraDirectoryName>
 
         <docker.mysql.image.forceNew>false</docker.mysql.image.forceNew>
         <docker.mysql.image.base>mysql:8.0.18</docker.mysql.image.base>
@@ -313,25 +312,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-dependencies</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${docker.payara.directory.shared}</outputDirectory>
-                            <includeArtifactIds>payara</includeArtifactIds>
-                            <includeTypes>glassfish-distribution</includeTypes>
-                            <stripClassifier>true</stripClassifier>
-                            <stripVersion>true</stripVersion>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <executions>
                     <execution>
@@ -425,7 +405,6 @@
             <properties>
                 <docker.payara.cfg.logging.newImplementation>false</docker.payara.cfg.logging.newImplementation>
                 <docker.payara.domainName>payaradomain</docker.payara.domainName>
-                <docker.payara.payaraDirectoryName>payara41</docker.payara.payaraDirectoryName>
             </properties>
         </profile>
     </profiles>

@@ -143,22 +143,6 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
 
 
     /**
-     * @return zip file containing application server in docker container
-     */
-    public File getPayaraZipFile() {
-        return new File(getMainApplicationDirectory(), "payara.zip");
-    }
-
-
-    /**
-     * @return zip file containing application server in docker container
-     */
-    public File getPayaraZipFileInDocker() {
-        return new File(getMainApplicationDirectoryInDocker(), "payara.zip");
-    }
-
-
-    /**
      * @return main payara directory in docker container
      */
     public File getPayaraMainDirectoryInDocker() {

@@ -100,11 +100,9 @@ public class PayaraServerDockerImageManager
         final StringBuilder command = super.getCommand();
         final PayaraServerContainerConfiguration cfg = getConfiguration();
         command.append(" && ls -la ").append(cfg.getMainApplicationDirectoryInDocker());
-        command.append(" && rm -rf ").append(cfg.getPayaraMainDirectoryInDocker()); //
-        command.append(" && unzip ").append(cfg.getPayaraZipFileInDocker()) //
-            .append(" -d ").append(cfg.getMainApplicationDirectoryInDocker());
+        command.append(" && ls -la ").append(cfg.getPayaraDomainDirectoryInDocker().getParentFile());
         if (cfg.isJaCoCoEnabled()) {
-            // FIXME: to lib/domain directory!
+            // FIXME: apply to payara's use case, probably move to lib or domain directory!
             command.append(" && unzip -o ").append(cfg.getMainApplicationDirectoryInDocker())
                 .append("/org.jacoco.agent-").append(cfg.getJaCoCoVersion()).append(".jar")
                 .append(" \"jacocoagent.jar\" -d ").append(cfg.getMainApplicationDirectoryInDocker()); //
@@ -118,10 +116,6 @@ public class PayaraServerDockerImageManager
             .append(" --user admin --passwordfile ").append(cfg.getPasswordFileForChangeInDocker()) //
             .append(" change-admin-password").append(" --domain_name=").append(cfg.getPayaraDomainName());
         command.append(" && ").append(asadmin).append(" start-domain ").append(cfg.getPayaraDomainName());
-        command.append(" && ").append(asadmin) //
-            .append(" --user admin --passwordfile ").append(cfg.getPasswordFileInDocker()) //
-            .append(" enable-secure-admin");
-        command.append(" && ").append(asadmin).append(" restart-domain " + cfg.getPayaraDomainName());
         command.append(" && echo '" + PAYARA_DOCKER_IMAGE_STARTED + "'");
         command.append(" && tail -F ").append(cfg.getPayaraServerLogInDocker()); //
         return command;

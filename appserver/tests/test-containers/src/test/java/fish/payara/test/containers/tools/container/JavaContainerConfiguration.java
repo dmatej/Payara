@@ -56,7 +56,6 @@ public class JavaContainerConfiguration {
     private final File mainApplicationDirectoryInDocker;
     private String downloadedDockerImageName;
 
-    private String jdkPackageId;
     private long preparationTimeout = 60L;
     private File pomFile;
     private File testOutputDirectory;
@@ -74,10 +73,10 @@ public class JavaContainerConfiguration {
 
     /**
      * Initializes the configuration with main java app directory used in the docker container set
-     * to /shared
+     * to /host-shared
      */
     public JavaContainerConfiguration() {
-        this.mainApplicationDirectoryInDocker = new File("/shared");
+        this.mainApplicationDirectoryInDocker = new File("/host-shared");
     }
 
 
@@ -100,22 +99,6 @@ public class JavaContainerConfiguration {
      */
     public void setDownloadedDockerImageName(final String dockerImageName) {
         this.downloadedDockerImageName = dockerImageName;
-    }
-
-
-    /**
-     * @return name of the package known to OS installer, ie. openjdk-11-jdk-headless
-     */
-    public String getJdkPackageId() {
-        return jdkPackageId;
-    }
-
-
-    /**
-     * @param jdkPackageId name of the package known to OS installer, ie. openjdk-11-jdk-headless
-     */
-    public void setJdkPackageId(String jdkPackageId) {
-        this.jdkPackageId = jdkPackageId;
     }
 
 

@@ -39,6 +39,7 @@
  */
 package fish.payara.test.containers.tools.container;
 
+import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
 
 import java.io.File;
@@ -139,27 +140,14 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
     @Override
     public String getInstallCommand() {
         return "true" //
-            + " && mkdir -p /usr/share/man/man1" //
-            // add repositories and useful software
             + " && apt-get update" //
             + " && apt-get -y install"
-            + " netcat net-tools inetutils-ping wget gnupg lsb-release curl"
-//            + " software-properties-common" //
-            + " locales psmisc"
-            + " unzip zip"
-//            + " && apt-key adv --fetch-keys https://download.docker.com/linux/debian/gpg" ///
-//            + " && add-apt-repository \"deb https://download.docker.com/linux/debian $(lsb_release -cs) stable\"" //
-//            + " && apt-get update" //
-            + " && apt-get -y install"
-//            + " docker-ce containerd.io"
-//            + " docker-ce-cli"
-            + " " + cfg.getJdkPackageId() //
+            + " netcat net-tools inetutils-ping wget gnupg lsb-release curl" //
+            + " locales psmisc" //
+            + " unzip zip" //
             + " && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*" //
-            // support locales
-            + " && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen"//
+            + " && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen" //
             + " && locale-gen" //
-//            + " && groupadd docker"
-            + " && adduser "/*--ingroup docker,root "*/ + USERNAME //
         ;
     }
 
@@ -191,10 +179,9 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
         for (final Entry<String, MountableFile> file : getFilesToCopy().entrySet()) {
             container.withCopyFileToContainer(file.getValue(), file.getKey());
         }
-        container.withFileSystemBind(this.cfg.getMainApplicationDirectory().getAbsolutePath(),
-            this.cfg.getMainApplicationDirectoryInDocker().getAbsolutePath(), READ_WRITE); //
-        // this allows to use host's docker inside the docker container.
-//        container.withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock");
+        container.withFileSystemBind( //
+            this.cfg.getMainApplicationDirectory().getAbsolutePath(),
+            this.cfg.getMainApplicationDirectoryInDocker().getAbsolutePath(), READ_WRITE);
         if (this.cfg.isJaCoCoEnabled()) {
             final File jaCoCoReportDirectory = requireNonNull(getConfiguration().getJaCoCoReportDirectory(),
                 "configuration.jaCoCoReportDirectory");
@@ -206,18 +193,18 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
                 this.cfg.getJaCoCoReportDirectoryInDocker().getAbsolutePath(), READ_WRITE);
         }
         container.withNetwork(getNetwork()); //
-//        container.withNetworkMode("bridge");
         container.withExposedPorts(getExposedInternalPorts().stream().toArray(Integer[]::new)); //
         container.withEnv("TZ", "UTC").withEnv("LC_ALL", "en_US.UTF-8"); //
         container.withCreateContainerCmdModifier(cmd -> {
             // see https://github.com/zpapez/docker-java/wiki
             cmd.getHostConfig().withMemory(this.cfg.getSystemMemoryInBytes()); //
-            cmd.getHostConfig().withUlimits(new Ulimit[] {new Ulimit("nofile", 4096, 8192)}); //
+            cmd.getHostConfig().withUlimits(new Ulimit[] {new Ulimit("nofile", 4096L, 8192L)}); //
             cmd.withHostName(this.cfg.getHost());
             cmd.withUser(USERNAME);
-//            cmd.getHostConfig().withCpuQuota(30_000L).withCpuPeriod(200_000L).withMemorySwappiness(0L); // 100_000/150_000
+            final HostConfig hostConfig = cmd.getHostConfig();
+            hostConfig.withMemorySwappiness(0L);
+//            cmd.getHostConfig().withCpuQuota(30_000L).withCpuPeriod(200_000L); // 100_000/150_000
         }); //
-
         container.withCommand("/bin/sh", "-c", getCommand().toString()); //
     }
 
@@ -240,19 +227,25 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
      */
     protected StringBuilder getCommand() {
         final StringBuilder command = new StringBuilder();
-        command.append("true"); //
-        command.append(" && lsb_release -a"); //
-        command.append(" && ulimit -a"); //
+        command.append("echo \"***************** Useful informations about this container *****************\"");
+        command.append(" && export LANG=\"en_US.UTF-8\"").append(" && export LANGUAGE=\"en_US.UTF-8\"");
+        command.append(" && (env | sort) && locale");
+        command.append(" && lsb_release -a");
+        command.append(" && ulimit -a");
+        // TODO: apply to Payara's use case
         command.append(" && fixEclipseJars.sh ").append(this.cfg.getMainApplicationDirectoryInDocker()).append("/*")
             .append(' ').append(REPACKED_JAR_NAMEADDON);
         for (final NetworkTarget hostAndPort : getTargetsToCheck()) {
             command.append(" && nc -v -z -w 1 ") //
                 .append(hostAndPort.getHost()).append(' ').append(hostAndPort.getPort());
         }
-        command.append(" && export LANG=\"en_US.UTF-8\"").append(" && export LANGUAGE=\"en_US.UTF-8\""); //
-        command.append(" && (env | sort) && locale"); //
-        command.append(" && cat /etc/hosts && cat /etc/resolv.conf"); //
-        command.append(" && hostname && netstat -r -n && netstat -ln"); //
+        command.append(" && cat /etc/hosts && cat /etc/resolv.conf");
+        command.append(" && hostname && netstat -r -n && netstat -ln");
+        command.append(" && java -version");
+        // useful to have access to the application state after the container is stopped.
+        command.append(" && mv /opt/payara/appserver /host-shared/payara");
+        command.append(" && ln -s /host-shared/payara /opt/payara/appserver");
+
         return command;
     }
 
