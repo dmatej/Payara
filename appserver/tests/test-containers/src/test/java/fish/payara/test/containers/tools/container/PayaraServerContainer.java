@@ -40,18 +40,14 @@
 package fish.payara.test.containers.tools.container;
 
 import com.github.dockerjava.api.exception.DockerClientException;
-import com.github.dockerjava.api.model.ContainerNetwork;
-
 import fish.payara.test.containers.tools.rs.RestClientCache;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -61,14 +57,13 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.Testcontainers;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
 
 /**
  * Payara server started as docker container.
  *
  * @author David Matějček
  */
-public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraServerContainer> {
+public class PayaraServerContainer extends PayaraContainer<PayaraServerContainer> {
 
     private static final Logger LOG = LoggerFactory.getLogger(PayaraServerContainer.class);
     private final PayaraServerContainerConfiguration configuration;
@@ -78,20 +73,24 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
     /**
      * Creates an instance.
      *
-     * @param nameOfBasicImage - name of the docker image to use
+     * @param configuration
+     */
+    public PayaraServerContainer(final DasCfg configuration) {
+        this("payara/server-full:" + configuration.getVersion(), configuration);
+    }
+
+
+    /**
+     * Creates an instance.
+     *
+     * @param nameOfBasicImage
      * @param configuration
      */
     public PayaraServerContainer(final String nameOfBasicImage,
         final PayaraServerContainerConfiguration configuration) {
-        super(nameOfBasicImage);
+        super(nameOfBasicImage, configuration);
         this.configuration = configuration;
         this.clientCache = new RestClientCache();
-    }
-
-
-    // FIXME delete after making paths public
-    public PayaraServerContainerConfiguration getConfiguration() {
-        return this.configuration;
     }
 
 
@@ -100,32 +99,6 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
      */
     public URL getAdminUrl() {
         return getExternalUrl("https", TestablePayaraPort.DAS_ADMIN_PORT);
-    }
-
-
-    /**
-     * @return {@link URL}, where tests can access the appllication HTTP port.
-     */
-    public URL getHttpUrl() {
-        return getExternalUrl("http", TestablePayaraPort.DAS_HTTP_PORT);
-    }
-
-
-    /**
-     * @return {@link URL}, where tests can access the application HTTPS port.
-     */
-    public URL getHttpsUrl() {
-        return getExternalUrl("https", TestablePayaraPort.DAS_HTTPS_PORT);
-    }
-
-
-    private URL getExternalUrl(final String protocol, final TestablePayaraPort internalPort) {
-        try {
-            return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort.getPort()), "/");
-        } catch (final MalformedURLException e) {
-            throw new IllegalStateException(
-                "Could not create external url for protocol '" + protocol + "' and port " + internalPort, e);
-        }
     }
 
 
@@ -182,17 +155,6 @@ public class PayaraServerContainer extends FixedHostPortGenericContainer<PayaraS
      */
     public void reconfigureLogging(final File fileInContainer) {
         // TODO: to be done later.
-    }
-
-
-    /**
-     * @return IP address usable in container network
-     */
-    public String getVirtualNetworkIpAddress() {
-        final Collection<ContainerNetwork> networks = getContainerInfo().getNetworkSettings().getNetworks().values();
-        LOG.trace("networks: {}", networks);
-        return networks.stream().filter(n -> n.getNetworkID().equals(getNetwork().getId())).findAny()
-            .map(ContainerNetwork::getIpAddress).orElse("127.0.0.1");
     }
 
 

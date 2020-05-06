@@ -101,7 +101,8 @@ public enum TestablePayaraPort {
      * @return port numbers used by Payara Server.
      */
     public static Integer[] getFullServerPortValues() {
-        return Stream.of(DAS_ADMIN_PORT, DAS_HTTP_PORT, DAS_HTTPS_PORT, DAS_HAZELCAST_PORT).map(TestablePayaraPort::getPort).toArray(Integer[]::new);
+        return Stream.of(DAS_ADMIN_PORT, DAS_HTTP_PORT, DAS_HTTPS_PORT, DAS_HAZELCAST_PORT)
+            .map(TestablePayaraPort::getPort).toArray(Integer[]::new);
     }
 
 

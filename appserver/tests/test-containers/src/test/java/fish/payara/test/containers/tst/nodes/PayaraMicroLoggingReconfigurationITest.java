@@ -39,6 +39,7 @@ import com.github.dockerjava.api.model.Network.Ipam.Config;
 
 import fish.payara.logging.jul.formatter.ODLLogFormatter;
 import fish.payara.test.containers.tools.container.DasCfg;
+import fish.payara.test.containers.tools.container.PayaraMicroContainer;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.container.TestablePayaraPort;
 import fish.payara.test.containers.tools.junit.WaitForExecutable;
@@ -123,8 +124,7 @@ public class PayaraMicroLoggingReconfigurationITest {
     private static File warFileInMicro;
 
     @Container
-    private final PayaraServerContainer das = //
-        new PayaraServerContainer("payara/server-full:" + CFG_DAS.getVersion(), CFG_DAS) //
+    private final PayaraServerContainer das = new PayaraServerContainer(CFG_DAS) //
             .withNetwork(NET).withNetworkMode("bridge").withNetworkAliases(CFG_DAS.getHost()) //
             .withExposedPorts(TestablePayaraPort.getFullServerPortValues()) //
             .withCreateContainerCmdModifier(cmd -> {
@@ -134,7 +134,7 @@ public class PayaraMicroLoggingReconfigurationITest {
             .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(30L)));
 
     @Container
-    private final PayaraServerContainer micro = new PayaraServerContainer("payara/micro:" + CFG_DAS.getVersion(), CFG_MIC) //
+    private final PayaraMicroContainer micro = new PayaraMicroContainer(CFG_MIC) //
         .withNetwork(NET).withNetworkMode("bridge").withNetworkAliases(CFG_MIC.getHost()) //
         .withExposedPorts(TestablePayaraPort.getMicroPortValues()).withLogConsumer(new Slf4jLogConsumer(LOG_MICRO))
         .withFileSystemBind(warFileOnHost.getAbsolutePath(), warFileInMicro.getAbsolutePath())
