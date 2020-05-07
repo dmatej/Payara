@@ -39,26 +39,13 @@
  */
 package fish.payara.test.containers.tools.arquillian;
 
-import com.sun.enterprise.deployment.deploy.shared.MemoryMappedArchive;
-
 import fish.payara.test.containers.tools.container.AsadminCommandException;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.env.DockerEnvironment;
 import fish.payara.test.containers.tools.junit.DockerITestExtension;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
+import java.net.URL;
 import java.util.Objects;
-import java.util.Properties;
-
-import javax.enterprise.deploy.spi.Target;
-
-import org.glassfish.deployment.client.DFDeploymentProperties;
-import org.glassfish.deployment.client.DFDeploymentStatus;
-import org.glassfish.deployment.client.DFProgressObject;
-import org.glassfish.deployment.client.RemoteDeploymentFacility;
-import org.glassfish.deployment.client.ServerConnectionIdentifier;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.container.DeploymentException;
 import org.jboss.arquillian.container.spi.client.container.LifecycleException;
@@ -67,7 +54,6 @@ import org.jboss.arquillian.container.spi.client.protocol.metadata.HTTPContext;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.ProtocolMetaData;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.Servlet;
 import org.jboss.shrinkwrap.api.Archive;
-import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.descriptor.api.Descriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,32 +109,20 @@ public class PayaraDockerDeployableContainer implements DeployableContainer<Paya
     @Override
     public ProtocolMetaData deploy(final Archive<?> archive) throws DeploymentException {
         LOG.debug("deploy(archive={})", archive);
-
         Objects.requireNonNull(archive, "archive must not be null");
-        final String applicationName = createDeploymentName(archive.getName());
+
         final PayaraServerContainer payara = environment.getPayaraContainer();
-        final RemoteDeploymentFacility deployer = connect(payara);
-        try {
-            deploy(applicationName, archive, deployer);
+        final String applicationName = payara.deploy(APP_CONTEXT_ROOT, archive);
+        logDeployedApplicationStatus(payara, applicationName);
 
-            payara.asAdmin("show-component-status", applicationName);
+        // FIXME: HTTP or HTTPS?
+        final URL httpUrl = payara.getHttpUrl();
+        final HTTPContext httpContext = new HTTPContext(httpUrl.getHost(), httpUrl.getPort());
+        httpContext.add(new Servlet(applicationName, APP_CONTEXT_ROOT));
 
-            // FIXME: use real context obtained from the server
-            final HTTPContext httpContext = new HTTPContext(payara.getContainerIpAddress(),
-                payara.getHttpUrl().getPort());
-
-            httpContext.add(new Servlet(applicationName, APP_CONTEXT_ROOT));
-            final List<String> modules = getModuleNames(applicationName, deployer);
-            LOG.info("modules: {}", modules);
-
-            final ProtocolMetaData protocolMetaData = new ProtocolMetaData();
-            protocolMetaData.addContext(httpContext);
-            return protocolMetaData;
-        } catch (final AsadminCommandException e) {
-            throw new DeploymentException("Deployment passed, but asadmin command failed to get component status.", e);
-        } finally {
-            deployer.disconnect();
-        }
+        final ProtocolMetaData protocolMetaData = new ProtocolMetaData();
+        protocolMetaData.addContext(httpContext);
+        return protocolMetaData;
     }
 
 
@@ -156,20 +130,8 @@ public class PayaraDockerDeployableContainer implements DeployableContainer<Paya
     public void undeploy(final Archive<?> archive) throws DeploymentException {
         LOG.debug("undeploy(archive={})", archive);
         Objects.requireNonNull(archive, "archive must not be null");
-        final String applicationName = createDeploymentName(archive.getName());
         final PayaraServerContainer payara = environment.getPayaraContainer();
-        final RemoteDeploymentFacility deployer = connect(payara);
-        try {
-            final Target[] targets = new Target[] {deployer.createTarget("server")};
-            final DFProgressObject progressObject = deployer.undeploy(targets, applicationName);
-            final DFDeploymentStatus deploymentStatus = progressObject.waitFor();
-            LOG.info("Deployment status: {}", deploymentStatus);
-            if (deploymentStatus.getStatus() == DFDeploymentStatus.Status.FAILURE) {
-                throw new DeploymentException("Deployment failed!" + deploymentStatus.getAllStageMessages());
-            }
-        } finally {
-            deployer.disconnect();
-        }
+        payara.undeploy(archive);
     }
 
 
@@ -187,71 +149,13 @@ public class PayaraDockerDeployableContainer implements DeployableContainer<Paya
     }
 
 
-    private String createDeploymentName(final String archiveName) {
-        String correctedName = archiveName;
-        if (correctedName.startsWith("/")) {
-            correctedName = correctedName.substring(1);
-        }
-
-        if (correctedName.indexOf(".") != -1) {
-            correctedName = correctedName.substring(0, correctedName.lastIndexOf("."));
-        }
-
-        return correctedName;
-    }
-
-
-    private RemoteDeploymentFacility connect(final PayaraServerContainer payara) {
-        LOG.trace("connect(payara={})", payara);
-        final RemoteDeploymentFacility deployer = new RemoteDeploymentFacility();
-        final ServerConnectionIdentifier sci = new ServerConnectionIdentifier();
-
-        sci.setHostName(payara.getContainerIpAddress());
-        sci.setHostPort(payara.getAdminUrl().getPort());
-        // FIXME: get it from PayaraServerContainer
-        sci.setUserName("admin");
-        sci.setPassword("admin123");
-
-        deployer.connect(sci);
-        return deployer;
-    }
-
-
-    private void deploy(final String applicationName, final Archive<?> archive, final RemoteDeploymentFacility deployer)
+    /** see logs for the response. No need to process the response. */
+    private void logDeployedApplicationStatus(final PayaraServerContainer payara, final String applicationName)
         throws DeploymentException {
-        LOG.debug("deploy(applicationName={}, archive, deployer={})", applicationName, deployer);
-        final DFDeploymentProperties options = new DFDeploymentProperties();
-        options.setName(applicationName);
-        options.setEnabled(true);
-        options.setForce(true);
-        options.setUpload(true);
-        options.setTarget("server");
-        // FIXME: find way to define the context!
-        options.setContextRoot(APP_CONTEXT_ROOT);
-        final Properties props = new Properties();
-        props.setProperty("keepSessions", "true");
-        options.setProperties(props);
-
-        try (InputStream archiveStream = archive.as(ZipExporter.class).exportAsInputStream()) {
-            final MemoryMappedArchive deployedArchive = new MemoryMappedArchive(archiveStream);
-            final Target[] targets = new Target[] {deployer.createTarget("server")};
-            final DFProgressObject progressObject = deployer.deploy(targets, deployedArchive, null, options);
-            final DFDeploymentStatus deploymentStatus = progressObject.waitFor();
-            LOG.info("Deployment status: {}", deploymentStatus);
-            if (deploymentStatus.getStatus() == DFDeploymentStatus.Status.FAILURE) {
-                throw new DeploymentException("Deployment failed!" + deploymentStatus.getAllStageMessages());
-            }
-        } catch (final IOException e) {
-            throw new DeploymentException("Deployment failed!", e);
-        }
-    }
-
-
-    private List<String> getModuleNames(final String applicationName, final RemoteDeploymentFacility deployer) {
         try {
-            return deployer.getSubModuleInfoForJ2EEApplication(applicationName);
-        } catch (final IOException e) {
-            throw new IllegalStateException("Could not get names of submodules", e);
+            payara.asAdmin("show-component-status", applicationName);
+        } catch (final AsadminCommandException e) {
+            throw new DeploymentException("Deployment passed, but asadmin command failed to get component status.", e);
         }
     }
 }

@@ -40,20 +40,35 @@
 package fish.payara.test.containers.tools.container;
 
 import com.github.dockerjava.api.exception.DockerClientException;
+import com.sun.enterprise.deployment.deploy.shared.MemoryMappedArchive;
+
 import fish.payara.test.containers.tools.rs.RestClientCache;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.enterprise.deploy.spi.Target;
+
 import org.apache.commons.io.FileUtils;
+import org.glassfish.deployment.client.DFDeploymentProperties;
+import org.glassfish.deployment.client.DFDeploymentStatus;
+import org.glassfish.deployment.client.DFProgressObject;
+import org.glassfish.deployment.client.RemoteDeploymentFacility;
+import org.glassfish.deployment.client.ServerConnectionIdentifier;
+import org.glassfish.deployment.common.DeploymentException;
+import org.jboss.shrinkwrap.api.Archive;
+import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.Testcontainers;
@@ -239,6 +254,8 @@ public class PayaraServerContainer extends PayaraContainer<PayaraServerContainer
     /**
      * Calls hosts docker. It's port must be exposed into container with the
      * {@link Testcontainers#exposeHostPorts(int...)} before the container is created.
+     * <p>
+     * The target is always <code>server</code>
      *
      * @param method
      * @param path
@@ -275,4 +292,141 @@ public class PayaraServerContainer extends PayaraContainer<PayaraServerContainer
             throw new IllegalStateException("Could not execute docker command via curl.", e);
         }
     }
+
+
+    /**
+     * Deploys the archive to the server on given context root
+     * <p>
+     * The target is always <code>server</code>
+     *
+     * @param contextRoot
+     * @param archive - it's name except suffix will be used as an application name.
+     * @return application name
+     * @throws DeploymentException - deployment failed
+     */
+    public String deploy(final String contextRoot, final Archive<?> archive) throws DeploymentException {
+        LOG.debug("deploy(contextRoot={}, archive.name={})", contextRoot, archive.getName());
+        Objects.requireNonNull(archive, "archive must not be null");
+
+        // TODO: implement as parameter + extension (different defaults - as visible here)
+        final DFDeploymentProperties options = new DFDeploymentProperties();
+        final String applicationName = createApplicationName(archive.getName());
+        options.setName(applicationName);
+        options.setEnabled(true);
+        options.setForce(true);
+        options.setUpload(true);
+        options.setTarget("server");
+        options.setContextRoot(contextRoot);
+        final Properties props = new Properties();
+        props.setProperty("keepSessions", "true");
+        props.setProperty("implicitCdiEnabled", "true");
+        options.setProperties(props);
+
+        // TODO: extend to implement AutoCloseable
+        final RemoteDeploymentFacility deployer = connectDeployer();
+        try {
+            final MemoryMappedArchive deployedArchive = toInMemoryArchive(archive);
+            final Target[] targets = new Target[] {deployer.createTarget("server")};
+            final DFProgressObject progressObject = deployer.deploy(targets, deployedArchive, null, options);
+            final DFDeploymentStatus deploymentStatus = progressObject.waitFor();
+            LOG.info("Deployment status: {}", deploymentStatus);
+            if (deploymentStatus.getStatus() == DFDeploymentStatus.Status.FAILURE) {
+                throw new DeploymentException("Deployment failed!" + deploymentStatus.getAllStageMessages());
+            }
+            final List<String> modules = getModuleNames(applicationName, deployer);
+            LOG.info("modules: {}", modules);
+            return applicationName;
+        } catch (final IOException e) {
+            throw new DeploymentException("Deployment of application " + applicationName + " failed!", e);
+        } finally {
+            deployer.disconnect();
+        }
+    }
+
+
+    /**
+     * Undeploys the archive. This method is symetrical to {@link #deploy(String, Archive)}.
+     * <p>
+     * The target is always <code>server</code>
+     *
+     * @param archive
+     * @throws DeploymentException - undeployment failed
+     */
+    public void undeploy(final Archive<?> archive) throws DeploymentException {
+        final String applicationName = createApplicationName(archive.getName());
+        undeploy(applicationName);
+    }
+
+
+    /**
+     * Undeploys the archive.
+     *
+     * @param applicationName - application name returned by {@link #deploy(String, Archive)}.
+     * @throws DeploymentException - undeployment failed
+     */
+    public void undeploy(final String applicationName) throws DeploymentException {
+        LOG.debug("undeploy(applicationName={})", applicationName);
+        Objects.requireNonNull(applicationName, "archive must not be null");
+        final RemoteDeploymentFacility deployer = connectDeployer();
+        try {
+            final Target[] targets = new Target[] {deployer.createTarget("server")};
+            final DFProgressObject progressObject = deployer.undeploy(targets, applicationName);
+            final DFDeploymentStatus deploymentStatus = progressObject.waitFor();
+            LOG.info("Deployment status: {}", deploymentStatus);
+            if (deploymentStatus.getStatus() == DFDeploymentStatus.Status.FAILURE) {
+                throw new DeploymentException("Undeployment failed!" + deploymentStatus.getAllStageMessages());
+            }
+        } finally {
+            deployer.disconnect();
+        }
+    }
+
+
+    private String createApplicationName(final String archiveName) {
+        String correctedName = archiveName;
+        if (correctedName.startsWith("/")) {
+            correctedName = correctedName.substring(1);
+        }
+
+        if (correctedName.indexOf(".") != -1) {
+            correctedName = correctedName.substring(0, correctedName.lastIndexOf("."));
+        }
+
+        return correctedName;
+    }
+
+
+    private MemoryMappedArchive toInMemoryArchive(final Archive<?> archive) {
+        try (InputStream archiveStream = archive.as(ZipExporter.class).exportAsInputStream()) {
+            return new MemoryMappedArchive(archiveStream);
+        } catch (IOException e) {
+            throw new DeploymentException("Deployment failed - cannot load the input archive!", e);
+        }
+    }
+
+
+    private RemoteDeploymentFacility connectDeployer() {
+        LOG.trace("connectDeployer()");
+        final RemoteDeploymentFacility deployer = new RemoteDeploymentFacility();
+        final ServerConnectionIdentifier sci = new ServerConnectionIdentifier();
+
+        sci.setHostName(getContainerIpAddress());
+        sci.setHostPort(getAdminUrl().getPort());
+        // TODO: configure+filter from pom.xml
+        sci.setUserName("admin");
+        sci.setPassword("admin123");
+
+        deployer.connect(sci);
+        return deployer;
+    }
+
+
+    private List<String> getModuleNames(final String applicationName, final RemoteDeploymentFacility deployer) {
+        try {
+            return deployer.getSubModuleInfoForJ2EEApplication(applicationName);
+        } catch (final IOException e) {
+            throw new IllegalStateException("Could not get names of submodules", e);
+        }
+    }
+
 }
