@@ -53,8 +53,6 @@ import fish.payara.test.containers.tools.security.KeyStoreManager;
 import fish.payara.test.containers.tools.security.KeyStoreType;
 import fish.payara.test.containers.tst.security.war.servlets.PublicServlet;
 
-import io.github.zforgo.arquillian.junit5.ArquillianExtension;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -95,8 +93,6 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.hamcrest.core.IsEqual;
-import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.jupiter.api.AfterAll;
@@ -123,7 +119,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  * @author David Matejcek
  */
 @ExtendWith(DockerITestExtension.class)
-@ExtendWith(ArquillianExtension.class)
 public class CertificateRealmITest {
 
     private static final Logger LOG = LoggerFactory.getLogger(CertificateRealmITest.class);
@@ -132,37 +127,15 @@ public class CertificateRealmITest {
         + " EMAILADDRESS=payara@payara.fish, DC=, DC=Payara1, DC=Payara2";
     private static final int RESPONSE_LINE_COUNT = 6;
 
-    @ArquillianResource
-    private static URL base;
-    private static URL baseHttps;
-
+    private static final AtomicInteger ix = new AtomicInteger();
     private static TestConfiguration testConfiguration;
     private static KeyStoreManager clientKeyStore;
     private static KeyStoreManager clientTrustStore;
     private static File clientTrustStoreFile;
-    private static final AtomicInteger ix = new AtomicInteger();
+    private static PayaraServerContainer das;
+    private static String applicationName;
 
     private WebClient webClient;
-
-
-    @Deployment(testable = false)
-    public static WebArchive createDeployment() throws Exception {
-        LOG.info("createDeployment()");
-
-        testConfiguration = TestConfiguration.getInstance();
-        final File webInfDir = testConfiguration.getClassDirectory().toPath()
-            .resolve(Paths.get("security", "war", "servlets", "WEB-INF")).toFile();
-        final WebArchive war = ShrinkWrap.create(WebArchive.class) //
-            .addPackage(PublicServlet.class.getPackage()) //
-            .addAsWebInfResource(new File(webInfDir, "web.xml")) //
-            // glassfish-web.xml must be ignored by the server, because of payara-web.xml
-            .addAsWebInfResource(new File(webInfDir, "glassfish-web.xml")) //
-            .addAsWebInfResource(new File(webInfDir, "payara-web.xml")) //
-        ;
-
-        LOG.info(war.toString(true));
-        return war;
-    }
 
 
     @BeforeAll
@@ -173,37 +146,54 @@ public class CertificateRealmITest {
         final X509Certificate clientCertificate = createClientCertificate(clientKeyPair);
         clientKeyStore = createClientKeyStore(clientKeyPair.getPrivate(), clientCertificate);
 
+        testConfiguration = TestConfiguration.getInstance();
         final PayaraServerFiles payaraFiles = new PayaraServerFiles(testConfiguration.getPayaraDirectory(),
             testConfiguration.getPayaraDomainName());
         final KeyStoreManager payaraTrustStore = payaraFiles.getTrustStore();
         payaraTrustStore.putTrusted("TestCert", clientCertificate);
         payaraTrustStore.save(payaraFiles.getTrustStoreFile());
 
-        final PayaraServerContainer payaraDas = DockerEnvironment.getInstance().getPayaraContainer();
-        payaraDas.asLocalAdmin("restart-domain", testConfiguration.getPayaraDomainName());
-        payaraDas.asAdmin("list-applications", "--subcomponents");
+        das = DockerEnvironment.getInstance().getPayaraContainer();
+        das.asLocalAdmin("restart-domain", testConfiguration.getPayaraDomainName());
+        final WebArchive application = createDeployment();
+        applicationName = das.deploy("/", application);
+        das.asAdmin("list-applications", "--subcomponents");
+
+        LOG.debug("Using baseHttps={} and client key store from: {}", das.getHttpsUrl(), clientKeyStore);
+
+        final X509Certificate[] serverCertificateChain = getServerCertificateChain();
+        LOG.debug("Received server certificates: \n{}", (Object) serverCertificateChain);
+        assertThat("Received server certificate chain", serverCertificateChain.length, IsEqual.equalTo(1));
+
+        clientTrustStore = createClientTrustStore(serverCertificateChain[0]);
+        clientTrustStoreFile = File.createTempFile("trust-store", clientTrustStore.getKeyStoreType().name());
+        clientTrustStore.save(clientTrustStoreFile);
+    }
+
+
+    private static WebArchive createDeployment() throws Exception {
+        LOG.info("createDeployment()");
+
+        final File webInfDir = testConfiguration.getClassDirectory().toPath()
+            .resolve(Paths.get("security", "war", "servlets", "WEB-INF")).toFile();
+        final WebArchive war = ShrinkWrap.create(WebArchive.class) //
+            .addPackage(PublicServlet.class.getPackage()) //
+            .addAsWebInfResource(new File(webInfDir, "web.xml")) //
+            // glassfish-web.xml must be ignored by the server, because of payara-web.xml
+            .addAsWebInfResource(new File(webInfDir, "glassfish-web.xml")) //
+            .addAsWebInfResource(new File(webInfDir, "payara-web.xml")) //
+            ;
+
+        LOG.info(war.toString(true));
+        return war;
     }
 
 
     @BeforeEach
     public void init() throws Exception {
-        if (baseHttps == null) {
-            final DockerEnvironment dockerEnvironment = DockerEnvironment.getInstance();
-            baseHttps = new URL(dockerEnvironment.getPayaraContainer().getHttpsUrl(), base.getPath());
-            LOG.debug("Using baseHttps={} and client key store from: {}", baseHttps, clientKeyStore);
-
-            final X509Certificate[] serverCertificateChain = getServerCertificateChain();
-            LOG.debug("Received server certificates: \n{}", (Object) serverCertificateChain);
-            assertThat("Received server certificate chain", serverCertificateChain.length, IsEqual.equalTo(1));
-
-            clientTrustStore = createClientTrustStore(serverCertificateChain[0]);
-            clientTrustStoreFile = File.createTempFile("trust-store", clientTrustStore.getKeyStoreType().name());
-            clientTrustStore.save(clientTrustStoreFile);
-        }
-
         assertNotNull(clientTrustStoreFile, "Client trust store is not initialized.");
         this.webClient = new WebClient();
-        LOG.debug("Using baseHttps={} and client key store from: {}", baseHttps, clientKeyStore);
+        LOG.debug("Using baseHttps={} and client key store from: {}", das.getHttpsUrl(), clientKeyStore);
 
         // Client -> Server: the key store's private keys and certificates are used to sign
         // and send a reply to the server
@@ -216,6 +206,12 @@ public class CertificateRealmITest {
     }
 
 
+    @AfterAll
+    public static void cleanup() {
+        DockerEnvironment.getInstance().getPayaraContainer().undeploy(applicationName);
+    }
+
+
     /**
      * Roles are not even mapped for this context.
      *
@@ -223,7 +219,7 @@ public class CertificateRealmITest {
      */
     @Test
     public void publicServletWithDefaults() throws Exception {
-        final TextPage page = webClient.getPage(new URL(baseHttps, "public"));
+        final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "public"));
         final String outputContent = page.getContent();
         LOG.info("Servlet response: \n{}", outputContent);
         assertNotNull(outputContent, "output");
@@ -247,7 +243,7 @@ public class CertificateRealmITest {
      */
     @Test
     public void cnServletWithDefaultPrincipal() throws Exception {
-        final TextPage page = webClient.getPage(new URL(baseHttps, "cn"));
+        final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "cn"));
         final String outputContent = page.getContent();
         LOG.info("Servlet response: \n{}", outputContent);
         assertNotNull("output", outputContent);
@@ -274,7 +270,7 @@ public class CertificateRealmITest {
     @Test
     public void cnServletWithCnPrincipalAndEmailRole() throws Exception {
         setRealmProperties("EMAILADDRESS", true);
-        final TextPage page = webClient.getPage(new URL(baseHttps, "cn"));
+        final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "cn"));
         final String outputContent = page.getContent();
         LOG.info("Servlet response: \n{}", outputContent);
         assertNotNull("output", outputContent);
@@ -302,7 +298,7 @@ public class CertificateRealmITest {
     @Test
     public void cnServletWithCnPrincipalAndEmailAndDcRole() throws Exception {
         setRealmProperties("EMAILADDRESS,DC", true);
-        final TextPage page = webClient.getPage(new URL(baseHttps, "cn"));
+        final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "cn"));
         final String outputContent = page.getContent();
         LOG.info("Servlet response: \n{}", outputContent);
         assertNotNull("output", outputContent);
@@ -328,7 +324,7 @@ public class CertificateRealmITest {
     @Test
     public void emailGroupServletWithDefaultPrincipalAndEmailRole() throws Exception {
         setRealmProperties("EMAILADDRESS,ST", false);
-        final TextPage page = webClient.getPage(new URL(baseHttps, "emailgroup"));
+        final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "emailgroup"));
         final String outputContent = page.getContent();
         LOG.info("Servlet response: \n{}", outputContent);
         assertNotNull("output", outputContent);
@@ -354,7 +350,7 @@ public class CertificateRealmITest {
     @Test
     public void emailGroupServletWithDefaultPrincipal() throws Exception {
         try {
-            final TextPage page = webClient.getPage(new URL(baseHttps, "emailgroup"));
+            final TextPage page = webClient.getPage(new URL(das.getHttpsUrl(), "emailgroup"));
             fail("Exception expected, but received response: \n" + page.getContent());
         } catch (FailingHttpStatusCodeException e) {
             assertThat("Exception message", e.getMessage(), startsWith("403 Forbidden"));
@@ -371,7 +367,7 @@ public class CertificateRealmITest {
     @Test
     public void inaccessibleNonExistingServlet() throws Exception {
         try {
-            final TextPage response = webClient.getPage(new URL(baseHttps, "inaccessible"));
+            final TextPage response = webClient.getPage(new URL(das.getHttpsUrl(), "inaccessible"));
             fail("Exception expected, but received response: \n" + response.getContent());
         } catch (FailingHttpStatusCodeException e) {
             assertThat("Exception message", e.getMessage(), startsWith("403 Forbidden"));
@@ -488,9 +484,9 @@ public class CertificateRealmITest {
             }
         };
 
-        final SSLContext sc = SSLContext.getInstance("TLS");
+        final SSLContext sc = SSLContext.getInstance("TLSv1.2");
         sc.init(null, new TrustManager[] {trustAllCerts}, new SecureRandom());
-        final HttpsURLConnection conn = (HttpsURLConnection) baseHttps.openConnection();
+        final HttpsURLConnection conn = (HttpsURLConnection) das.getHttpsUrl().openConnection();
         try {
             // all host names accepted
             conn.setHostnameVerifier((hostname, session) -> true);
