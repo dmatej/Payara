@@ -40,14 +40,12 @@
 package fish.payara.test.containers.tst.jta.timeout;
 
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
-import fish.payara.test.containers.tools.junit.DockerITest;
+import fish.payara.test.containers.tools.env.DockerEnvironment;
+import fish.payara.test.containers.tools.junit.DockerITestExtension;
 import fish.payara.test.containers.tools.log4j.EventCollectorAppender;
 import fish.payara.test.containers.tst.jta.timeout.war.AsynchronousTimeoutingJob;
 import fish.payara.test.containers.tst.jta.timeout.war.SlowJpaPartitioner;
 
-import io.github.zforgo.arquillian.junit5.ArquillianExtension;
-
-import java.net.URL;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -63,8 +61,6 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.log4j.spi.LoggingEvent;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
-import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.jupiter.api.AfterAll;
@@ -89,8 +85,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * @author David Matejcek
  */
-@ExtendWith(ArquillianExtension.class)
-public class JtaTimeoutLoggingITest extends DockerITest {
+@ExtendWith(DockerITestExtension.class)
+public class JtaTimeoutLoggingITest {
 
     private static final Logger LOG = LoggerFactory.getLogger(JtaTimeoutLoggingITest.class);
 
@@ -113,14 +109,14 @@ public class JtaTimeoutLoggingITest extends DockerITest {
     private static final Pattern P_EXCEPTION_TX = Pattern.compile( //
         "STDOUT:\\s+javax.ejb.EJBTransactionRolledbackException: Client's transaction aborted");
 
+    private static DockerEnvironment environment;
     private static EventCollectorAppender domainLog;
-
-    @ArquillianResource
-    private static URL base;
+    private static String applicationName;
 
 
     @BeforeAll
-    public static void addLogCollector() {
+    public static void prepareTestEnvironemt() throws Exception {
+        environment = DockerEnvironment.getInstance();
         final org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger("D-PAYARA");
         assertNotNull(logger, "D-PAYARA logger was not found");
         final Predicate<LoggingEvent> filter = event -> {
@@ -132,6 +128,12 @@ public class JtaTimeoutLoggingITest extends DockerITest {
         };
         domainLog = new EventCollectorAppender().withCapacity(20).withEventFilter(filter);
         logger.addAppender(domainLog);
+
+        final PayaraServerContainer das = environment.getPayaraContainer();
+        das.asAdmin("set", "configs.config.server-config.transaction-service.timeout-in-seconds=" + TIMEOUT_IN_SECONDS);
+        das.asAdmin("restart-domain",
+            environment.getConfiguration().getPayaraServerConfiguration().getPayaraDomainName());
+        applicationName = das.deploy("/", getArchiveToDeploy());
     }
 
 
@@ -148,20 +150,14 @@ public class JtaTimeoutLoggingITest extends DockerITest {
         assertNotNull(logger, "D-PAYARA logger was not found");
         logger.removeAppender(domainLog);
         domainLog.close();
-        final PayaraServerContainer das = getDockerEnvironment().getPayaraContainer();
+        final PayaraServerContainer das = environment.getPayaraContainer();
+        das.undeploy(applicationName);
         das.asAdmin("set", "configs.config.server-config.transaction-service.timeout-in-seconds=0");
     }
 
 
-    @Deployment(testable = false)
-    public static WebArchive getArchiveToDeploy() throws Exception {
+    private static WebArchive getArchiveToDeploy() throws Exception {
         LOG.info("createDeployment()");
-
-        final PayaraServerContainer das = getDockerEnvironment().getPayaraContainer();
-        das.asAdmin("set", "configs.config.server-config.transaction-service.timeout-in-seconds=" + TIMEOUT_IN_SECONDS);
-        das.asAdmin("restart-domain",
-            getDockerEnvironment().getConfiguration().getPayaraServerConfiguration().getPayaraDomainName());
-
         final String cpPrefix = "jta/timeout/war";
         final WebArchive war = ShrinkWrap.create(WebArchive.class) //
             .addPackages(true, ASYNCJOB_CLASS.getPackage()) //
@@ -229,7 +225,7 @@ public class JtaTimeoutLoggingITest extends DockerITest {
 
 
     private void callService(String urlRelativePath) {
-        final WebTarget target = getAnonymousBasicWebTarget();
+        final WebTarget target = environment.getPayaraContainer().getAnonymousBasicWebTarget();
         final WebTarget pgstorePath = target.path("/timeout");
         final Builder builder = pgstorePath.path(urlRelativePath).request();
         try (Response response = builder.post(Entity.text(""))) {

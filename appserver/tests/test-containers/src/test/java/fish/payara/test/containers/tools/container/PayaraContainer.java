@@ -44,8 +44,13 @@ import com.github.dockerjava.api.model.ContainerNetwork;
 import fish.payara.test.containers.tools.rs.RestClientCache;
 
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
+
+import javax.ws.rs.client.WebTarget;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
@@ -60,6 +65,8 @@ public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extend
 
     private static final Logger LOG = LoggerFactory.getLogger(PayaraContainer.class);
     private final PayaraServerContainerConfiguration configuration;
+
+    // FIXME: move it out, it is not a feature of the container. But it's life is bound to it.
     private final RestClientCache clientCache;
 
 
@@ -99,12 +106,29 @@ public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extend
     }
 
 
+    /**
+     * @return basic JAX-RS client for the {@link #getHttpUrl()}
+     */
+    public WebTarget getAnonymousBasicWebTarget() {
+        return clientCache.getAnonymousClient().target(toURI(getHttpUrl()));
+    }
+
+
     protected URL getExternalUrl(final String protocol, final TestablePayaraPort internalPort) {
         try {
             return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort.getPort()), "/");
         } catch (final MalformedURLException e) {
             throw new IllegalStateException(
                 "Could not create external url for protocol '" + protocol + "' and port " + internalPort, e);
+        }
+    }
+
+
+    private URI toURI(final URL url) {
+        try {
+            return url.toURI();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("This URL cannot be converted to URI: " + url, e);
         }
     }
 
