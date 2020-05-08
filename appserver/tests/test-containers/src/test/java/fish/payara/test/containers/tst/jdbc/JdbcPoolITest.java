@@ -39,17 +39,25 @@
  */
 package fish.payara.test.containers.tst.jdbc;
 
+import com.github.database.rider.core.api.connection.ConnectionHolder;
+import com.github.database.rider.core.api.dataset.DataSetExecutor;
+import com.github.database.rider.core.configuration.DBUnitConfig;
+import com.github.database.rider.core.configuration.DataSetConfig;
+import com.github.database.rider.core.dataset.DataSetExecutorImpl;
+import com.github.database.rider.junit5.DBUnitExtension;
+import com.mysql.cj.jdbc.MysqlDataSource;
+
 import fish.payara.test.containers.tools.container.MySQLContainerConfiguration;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.container.PayaraServerContainerConfiguration;
 import fish.payara.test.containers.tools.env.DockerEnvironment;
 import fish.payara.test.containers.tools.junit.DockerITest;
+import fish.payara.test.containers.tools.junit.DockerITestExtension;
 import fish.payara.test.containers.tst.jdbc.war.DataSourceDefinitionBean;
 import fish.payara.test.containers.tst.jdbc.war.JdbcDsName;
 
-import io.github.zforgo.arquillian.junit5.ArquillianExtension;
-
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.WebTarget;
@@ -57,14 +65,12 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.io.FileUtils;
-import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.persistence.CleanupUsingScript;
-import org.jboss.arquillian.persistence.TestExecutionPhase;
-import org.jboss.arquillian.persistence.UsingDataSet;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.jboss.shrinkwrap.resolver.api.maven.Maven;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -77,39 +83,50 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * @author David Matejcek
  */
-@ExtendWith(ArquillianExtension.class)
-@CleanupUsingScript(phase = TestExecutionPhase.BEFORE, value = {"dbCleanup.sql"})
-@UsingDataSet(value = "basicDbStatus.json")
+@ExtendWith(DockerITestExtension.class)
+@ExtendWith(DBUnitExtension.class)
 public class JdbcPoolITest extends DockerITest {
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcPoolITest.class);
-
-//    @ArquillianResource(MysqlDataSource.class)
-//    private DataSource ds;
-//
-//    @ArquillianResource
-//    private DataSourceDefinitionBean bean;
-//
-//    @ArquillianResource
-//    private ProtocolMetaData metadata;
-//
-//    @ArquillianResource
-//    private Deployer deployer;
-//
-//    @ArquillianResource
-//    private InitialContext context;
+    private static String applicationName;
+    private static PayaraServerContainer payara;
+    private static ConnectionHolder connectionHolder;
+    private static DataSetExecutor dsExecutor;
 
 
     @BeforeAll
     public static void initEnvironment() throws Exception {
         LOG.info("initEnvironment()");
         final DockerEnvironment environment = DockerEnvironment.getInstance();
-        final PayaraServerContainer payara = environment.getPayaraContainer();
+        payara = environment.getPayaraContainer();
         final MySQLContainer<?> mysql = environment.getMySqlcontainer();
         final MySQLContainerConfiguration mysqlCfg = environment.getConfiguration().getMySQLServerConfiguration();
+
+        final MysqlDataSource dataSource = new MysqlDataSource();
+        dataSource.setDatabaseName("testdb");
+        dataSource.setServerName(mysql.getContainerIpAddress());
+        dataSource.setPort(mysql.getMappedPort(mysqlCfg.getPort()));
+        dataSource.setUser(mysqlCfg.getDbUser());
+        dataSource.setPassword(mysqlCfg.getDbPassword());
+        dataSource.setServerTimezone("UTC");
+        dataSource.setNullCatalogMeansCurrent(true);
+        dataSource.setUseInformationSchema(true);
+        dataSource.setZeroDateTimeBehavior("CONVERT_TO_NULL");
+        dataSource.setCharacterEncoding(StandardCharsets.UTF_8.name());
+
+        connectionHolder = dataSource::getConnection;
+
+        final DBUnitConfig dbUnitConfig = DBUnitConfig.fromGlobalConfig();
+        dbUnitConfig.executorId("executor");
+        dbUnitConfig.addDBUnitProperty("caseSensitiveTableNames", "true");
+        dbUnitConfig.addDBUnitProperty("batchedStatements", "true");
+        dbUnitConfig.addDBUnitProperty("qualifiedTableNames", "false");
+        dbUnitConfig.addDBUnitProperty("schema", "testdb");
+        dsExecutor = DataSetExecutorImpl.instance("executor", connectionHolder);
+        dsExecutor.setDBUnitConfig(dbUnitConfig);
+
         final PayaraServerContainerConfiguration payaraConfiguration = environment.getConfiguration()
             .getPayaraServerConfiguration();
-
         final File driverFile = Maven.resolver().loadPomFromFile("pom.xml").resolve("mysql:mysql-connector-java")
             .withoutTransitivity().asSingleFile();
         final File targetFile = new File(payaraConfiguration.getPayaraDomainLibDirectory(), driverFile.getName());
@@ -122,7 +139,7 @@ public class JdbcPoolITest extends DockerITest {
         for (String jndiName : new String[] {JdbcDsName.JDBC_DS_3, JdbcDsName.JDBC_DS_4}) {
             final String poolName = poolNameBase + counter++;
             payara.asAdmin("create-jdbc-connection-pool", "--ping", "--restype", "javax.sql.DataSource", //
-                "--datasourceclassname", "com.mysql.cj.jdbc.MysqlDataSource", //
+                "--datasourceclassname", MysqlDataSource.class.getName(), //
                 "--steadypoolsize", "0", "--maxpoolsize", "20", //
                 "--validationmethod", "auto-commit", //
                 "--isconnectvalidatereq", "true", "--failconnection", "true", //
@@ -137,59 +154,47 @@ public class JdbcPoolITest extends DockerITest {
             payara.asAdmin("create-jdbc-resource", "--connectionpoolid", poolName, jndiName);
         }
 
+        applicationName = payara.deploy("/", getArchiveToDeploy());
         payara.asAdmin("list-jdbc-connection-pools");
-
-//    runSqlCommand("ALTER DATABASE " + DB_NAME + " CHARACTER SET utf8;");
-//    runSqlScript("dbSchema.sql");
     }
 
-    @Deployment(testable = false)
-    public static WebArchive getArchiveToDeploy() throws Exception {
-        LOG.info("getArchiveToDeploy()");
 
+    @AfterAll
+    public static void cleanup() {
+        payara.undeploy(applicationName);
+    }
+
+
+    @BeforeEach
+    public void resetTables() {
+        dsExecutor.executeScript("dbCleanup.sql");
+        final DataSetConfig dataSet = new DataSetConfig("basicDbStatus.json");
+        dsExecutor.createDataSet(dataSet);
+    }
+
+
+    private static WebArchive getArchiveToDeploy() throws Exception {
+        LOG.info("getArchiveToDeploy()");
         final WebArchive war = ShrinkWrap.create(WebArchive.class) //
             .addPackage(DataSourceDefinitionBean.class.getPackage()) //
-//            .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml")
-// TODO: otestovat jako priklad s @Datasourcedefinition anotaci v jinem testu
-//            .addAsLibraries(Maven.resolver().loadPomFromFile("pom.xml") //
-//                .resolve("mysql:mysql-connector-java").withoutTransitivity().asFile())
-//            .addAsWebInfResource(new File(webInfDir, "web.xml")) //
-//            .addAsWebInfResource(new File(webInfDir, "glassfish-web.xml")) //
-//            .addAsWebInfResource(new File(webInfDir, "payara-web.xml")) //
         ;
-
         LOG.info(war.toString(true));
         return war;
     }
 
+
     @Test
     public void testSomething() throws Exception {
-        WebTarget target = getAnonymousBasicWebTarget();
-        // FIXME: must use proper context
-        Builder builder = target.path("ds").path("versions").request();
+        final WebTarget target = getAnonymousBasicWebTarget();
+        final Builder builder = target.path("ds").path("versions").request();
         try (Response response = builder.get()) {
             assertEquals(Status.OK, response.getStatusInfo().toEnum(), "response.status");
             assertTrue(response.hasEntity(), "response.hasEntity");
 
             final String stringEntity = response.readEntity(String.class);
             LOG.info("stringEntity: \n{}", stringEntity);
-            assertEquals("Table 'testdb.JEEVersion' doesn't exist", stringEntity, "response.text");
+            assertEquals("[J2EE 1.2, J2EE 1.3, J2EE 1.4, Java EE 6, Java EE 7, Java EE 8, Jakarta EE 8, Jakarta EE 9]",
+                stringEntity, "response.text");
         }
-
-        // FIXME: in-container test
-//        assertAll( //
-//            () -> assertNotNull(ds, "ds"), //
-//            () -> assertNotNull(bean, "bean"), //
-//            () -> assertNotNull(metadata, "metadata"), //
-//            () -> assertNotNull(deployer, "deployer"), //
-//            () -> assertNotNull(context, "context") //
-//        );
     }
-//
-//
-//    private static int getJdbcPort(final MySQLContainer<?> mysql) {
-//        final String jdbcUrl = mysql.getJdbcUrl();
-//        final URI url = URI.create(jdbcUrl.substring(5));
-//        return url.getPort();
-//    }
 }

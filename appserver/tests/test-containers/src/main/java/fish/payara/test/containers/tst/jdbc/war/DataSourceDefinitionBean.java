@@ -43,6 +43,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -55,6 +56,8 @@ import javax.ejb.TransactionAttributeType;
 import javax.sql.DataSource;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 
@@ -104,6 +107,7 @@ public class DataSourceDefinitionBean {
 
     @GET
     @Path("/versions")
+    @Produces(MediaType.TEXT_PLAIN)
     public Response versions() throws Exception {
         LOG.severe("==================================== whoa!");
         try (Connection connection = dsa1.getConnection()) {
@@ -118,12 +122,8 @@ public class DataSourceDefinitionBean {
         try (Connection connection = dsd2.getConnection()) {
             LOG.severe("++++++++++++++++++++++++++++++++++++++++++++++CONNECTION DSD2: " + connection);
         }
-        try {
-            final List<String> jeeVersions = getJeeVersions();
-            return Response.ok().entity(jeeVersions).build();
-        } catch (final Exception e) {
-            return Response.ok().entity(e.getMessage()).build();
-        }
+        final List<String> jeeVersions = getJeeVersions();
+        return Response.ok().entity(Arrays.toString(jeeVersions.toArray())).build();
     }
 
 

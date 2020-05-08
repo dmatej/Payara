@@ -61,7 +61,7 @@ public class MySQLDockerImageManager extends DockerImageManager {
                 cmd.getHostConfig().withMemory(this.cfg.getSystemMemoryInBytes()); //
             });
         container.start();
-        LOG.info("MySQL container started.");
+        LOG.info("MySQL container started. JDBC URL: {}", container.getJdbcUrl());
         return container;
     }
 }

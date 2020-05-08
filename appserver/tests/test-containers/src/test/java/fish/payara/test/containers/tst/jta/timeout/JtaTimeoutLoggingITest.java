@@ -145,7 +145,7 @@ public class JtaTimeoutLoggingITest {
 
 
     @AfterAll
-    public static void removeLogCollectorAndResetTimeout() throws Exception {
+    public static void cleanup() throws Exception {
         final org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger("D-PAYARA");
         assertNotNull(logger, "D-PAYARA logger was not found");
         logger.removeAppender(domainLog);
