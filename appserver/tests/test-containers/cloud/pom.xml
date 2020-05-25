@@ -197,40 +197,25 @@
             </plugin>
             <plugin>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <argLine>${failsafe.argLine}</argLine>
+                    <includes>
+                        <include>**/*ITest.java</include>
+                        <include>**/*PTest.java</include>
+                    </includes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>integration-test</id>
                         <goals>
                             <goal>integration-test</goal>
                         </goals>
-                        <configuration>
-                            <useSystemClassLoader>false</useSystemClassLoader>
-                            <failIfNoTests>true</failIfNoTests>
-                            <trimStackTrace>false</trimStackTrace>
-                            <verbose>true</verbose>
-                            <encoding>${project.build.sourceEncoding}</encoding>
-                            <argLine>${failsafe.argLine}</argLine>
-                            <includes>
-                                <include>**/*ITest.java</include>
-                                <include>**/*PTest.java</include>
-                            </includes>
-                        </configuration>
                     </execution>
                     <execution>
                         <id>verify</id>
                         <goals>
                             <goal>verify</goal>
                         </goals>
-                        <configuration>
-                            <useSystemClassLoader>false</useSystemClassLoader>
-                            <failIfNoTests>true</failIfNoTests>
-                            <verbose>true</verbose>
-                            <argLine>${failsafe.argLine}</argLine>
-                            <includes>
-                                <include>**/*ITest.java</include>
-                                <include>**/*PTest.java</include>
-                            </includes>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
