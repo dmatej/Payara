@@ -16,6 +16,7 @@
         <module>tools-arquillian</module>
         <module>manual</module>
         <module>cloud</module>
+        <module>corba-xa-transactions</module>
 <!--         <module>mysql</module> -->
 <!--         <module>jmh</module> -->
 <!--         <module>primefaces</module> -->
