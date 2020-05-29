@@ -259,6 +259,7 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
     protected StringBuilder getCommand() {
         final StringBuilder command = new StringBuilder();
         command.append("echo \"***************** Useful informations about this container *****************\"");
+        command.append(" && set -x");
         command.append(" && export LANG=\"en_US.UTF-8\"").append(" && export LANGUAGE=\"en_US.UTF-8\"");
         command.append(" && (env | sort) && locale");
         command.append(" && lsb_release -a");
