@@ -147,21 +147,6 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
 
 
     @Override
-    public String getInstallCommand() {
-        return "true" //
-            + " && apt-get update" //
-            + " && apt-get -y install"
-            + " netcat net-tools inetutils-ping wget gnupg lsb-release curl" //
-            + " locales psmisc" //
-            + " unzip zip" //
-            + " && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*" //
-            + " && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen" //
-            + " && locale-gen" //
-        ;
-    }
-
-
-    @Override
     public T start() {
         LOG.debug("Creating and starting container from image {} ...", getNameOfPreparedImage());
         try {

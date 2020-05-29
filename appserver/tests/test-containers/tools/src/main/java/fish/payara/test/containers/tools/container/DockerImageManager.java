@@ -80,12 +80,6 @@ public abstract class DockerImageManager {
 
 
     /**
-     * @return command used to enhance the basic image.
-     */
-    public abstract String getInstallCommand();
-
-
-    /**
      * Enhances the cached container and starts it.
      *
      * @return running instance of the container.
@@ -98,6 +92,19 @@ public abstract class DockerImageManager {
      */
     protected String getNameOfPreparedImage() {
         return this.imgNamePrepared;
+    }
+
+
+    /**
+     * Returns the command used to enhance the downloaded docker image.
+     * <p>
+     * By default it returns only <code>true</code> - so it can be extended by
+     * <code> && echo "hello"</code> in children, ie., and on.
+     *
+     * @return command used to enhance the basic image.
+     */
+    public String getInstallCommand() {
+        return "true";
     }
 
 
@@ -131,7 +138,7 @@ public abstract class DockerImageManager {
 
 
     private static String getNewImageName(final String originalImageName) {
-        return originalImageName.replaceAll("[:./]+", "\\-").toLowerCase().concat("-for-payara-tests:latest");
+        return originalImageName.replaceAll("[:./]+", "\\-").toLowerCase().concat("-for-tests:latest");
     }
 
 

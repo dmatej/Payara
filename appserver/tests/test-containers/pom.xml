@@ -12,6 +12,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>docker-containers-for-tests</module>
         <module>tools</module>
         <module>tools-arquillian</module>
         <module>manual</module>
@@ -23,18 +24,16 @@
     </modules>
 
     <properties>
-        <docker.host>host.testcontainers.internal</docker.host>
-        <docker.port>2376</docker.port>
         <docker.images.timeoutInSeconds>900</docker.images.timeoutInSeconds>
 
         <docker.payara.cfg.logging.newImplementation>true</docker.payara.cfg.logging.newImplementation>
         <docker.payara.directory.shared>${project.build.directory}/shared</docker.payara.directory.shared>
-        <docker.payara.domainName>production</docker.payara.domainName>
+        <docker.payara.domainName>test</docker.payara.domainName>
 
         <docker.payara.version>${project.version}</docker.payara.version>
         <docker.payara.tag>${docker.payara.version}</docker.payara.tag>
-        <docker.payara.image.base>payara/server-full:${docker.payara.tag}</docker.payara.image.base>
-        <docker.payara.image.forceNew>false</docker.payara.image.forceNew>
+        <docker.payara.image.base>payara/payara4tests:${docker.payara.tag}</docker.payara.image.base>
+        <docker.payara.image.forceNew>true</docker.payara.image.forceNew>
 
         <docker.payara.jvm.xms>256m</docker.payara.jvm.xms>
         <docker.payara.jvm.xmx>1g</docker.payara.jvm.xmx>
@@ -271,7 +270,7 @@
             <!-- This profile if important for experimenting with Payara4 in this branch -->
             <properties>
                 <docker.payara.cfg.logging.newImplementation>false</docker.payara.cfg.logging.newImplementation>
-                <docker.payara.domainName>payaradomain</docker.payara.domainName>
+                <docker.payara.domainName>test</docker.payara.domainName>
             </properties>
         </profile>
     </profiles>

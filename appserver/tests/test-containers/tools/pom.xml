@@ -35,6 +35,13 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Reason of following dependencies: order in build reactor. -->
+        <dependency>
+            <groupId>fish.payara.server.internal.tests</groupId>
+            <artifactId>docker-containers-for-tests</artifactId>
+            <version>${project.version}</version>
+            <type>pom</type>
+        </dependency>
         <dependency>
             <groupId>fish.payara.extras</groupId>
             <artifactId>server-full-docker-image</artifactId>

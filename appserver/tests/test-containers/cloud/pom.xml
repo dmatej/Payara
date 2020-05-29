@@ -12,6 +12,11 @@
     <description>Tests for Data Grids, Clusters and Nodes</description>
     <packaging>jar</packaging>
 
+    <properties>
+        <docker.host>host.testcontainers.internal</docker.host>
+        <docker.port>2376</docker.port>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>fish.payara.server.internal.tests</groupId>

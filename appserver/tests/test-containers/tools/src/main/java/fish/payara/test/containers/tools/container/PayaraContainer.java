@@ -123,7 +123,7 @@ public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extend
      */
     protected URL getExternalUrl(final String protocol, final TestablePayaraPort internalPort) {
         try {
-            return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort.getPort()), "/");
+            return new URL(protocol, getHost(), getMappedPort(internalPort.getPort()), "/");
         } catch (final MalformedURLException e) {
             throw new IllegalStateException(
                 "Could not create external url for protocol '" + protocol + "' and port " + internalPort, e);
