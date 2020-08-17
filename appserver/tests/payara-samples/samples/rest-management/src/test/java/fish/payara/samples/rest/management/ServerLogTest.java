@@ -40,7 +40,7 @@
 package fish.payara.samples.rest.management;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 import fish.payara.samples.ServerOperations;
 
@@ -53,7 +53,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Tests to run against the server log
+ * A test to make sure that while the server is starting there are no WARNING or ERROR messages in the server log.
  */
 public class ServerLogTest extends RestManagementTest {
 
@@ -67,58 +67,25 @@ public class ServerLogTest extends RestManagementTest {
         ServerOperations.restartContainer();
     }
 
-    /**
-     * A test to make sure that while the server is starting there are no WARNING or ERROR messages in the server log.
-     */
+
     @Test
     public void when_domain_started_expect_no_logged_warnings() {
-
-        String log = viewLog();
+        final String log = requestViewLogEndpoint();
         try (Scanner scanner = new Scanner(log)) {
-            boolean startupLine = false;
-            boolean warningFound = false;
-            boolean printLine = false;
-
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-
-                // Only count lines after the JVM invocation
-                if (line.contains("JVM invocation")) {
-                    startupLine = true;
-                    continue;
-                }
-                if (startupLine) {
-                    System.err.println(line);
-                    // Flag a warning if found
-                    if (line.contains("WARNING") || line.contains("ERROR")) {
-                        warningFound = true;
-                        printLine = true;
-                    }
-                    if (warningFound) {
-                        // Print all the following lines until an empty line
-                        if (printLine) {
-                            System.err.println(line);
-                        }
-                        if (line.isEmpty() || line.matches("\\s*")) {
-                            printLine = false;
-                        }
-                    }
-                }
-                // Don't search messages after startup
-                if (line.contains("startup time")) {
-                    startupLine = false;
+                // Flag a warning if found
+                if (line.contains("WARNING") || line.contains("ERROR")) {
+                    fail("Detected warning log message: \n" + line + scanner.nextLine());
                 }
             }
-            assertFalse("Warning found in the log", warningFound);
         }
     }
 
     /**
      * @return the contents of the server log
      */
-    private String viewLog() {
-        return target.path("view-log")
-            .request()
-            .get(String.class);
+    private String requestViewLogEndpoint() {
+        return target.path("view-log").request().get(String.class);
     }
 }
