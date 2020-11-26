@@ -151,7 +151,7 @@ public abstract class DockerImageManager {
             return tags == null ? false : Arrays.asList(tags).contains(imageName);
         })) {
             LOG.warn("Removing cached image '{}' ...", imageName);
-            dockerClient.removeImageCmd(imageName).exec();
+            dockerClient.removeImageCmd(imageName).withForce(true).exec();
         }
     }
 
