@@ -66,7 +66,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonValue;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -119,8 +119,8 @@ public class DockerNodesITest {
     }
 
 
-    @AfterAll
-    public static void deleteDeadContainers() throws Exception {
+    @AfterEach
+    public void deleteDeadContainers() throws Exception {
         if (environment == null) {
             return;
         }
@@ -150,9 +150,11 @@ public class DockerNodesITest {
         final String startResponse = domain.docker("containers/" + containerId + "/start", "");
         assertThat("curl start container output", startResponse, stringContainsInOrder("HTTP/1.1 204 No Content"));
 
-        // FIXME: took 2 seconds but only 2 iterations on my computer. asadmin is slow (I know about unsuccessful redundant classloading, but not sure if in all cases)!!!
+        // FIXME: took 2 seconds just 2 iterations on my computer.
+        // asadmin is so slow (I know about unsuccessful redundant classloading, but it is probably not the cause)
+        // needed time is very unstable - 2-90 seconds (hazelcast vs. DNS heuristic?)
         final Executable listRunningInstance = getListInstanceActionToWaitFor(domain, INSTANCE_STATUS_RUNNING);
-        waitFor(listRunningInstance, 60 * 1000L);
+        waitFor(listRunningInstance, 3 * 60 * 1000L);
 
         final String listInstancesResponse = domain.asAdmin("list-instances");
         assertNotNull(listInstancesResponse, "listInstancesResponse"); //
@@ -187,7 +189,7 @@ public class DockerNodesITest {
     @Test
     public void testDASManagedDockerInstanceLifeCycle() throws Throwable {
         final PayaraServerContainer domain = environment.getPayaraContainer();
-        // we use same computer as DAS for simplicity - in fact it is still host's docker.
+        // we use the same computer as DAS for simplicity - in fact it is still host's docker.
         final DockerEnvironmentConfiguration dockerConfiguration = environment.getConfiguration();
         final PayaraServerContainerConfiguration dasConfiguration = dockerConfiguration.getPayaraServerConfiguration();
         final TestConfiguration testConfiguration = TestConfiguration.getInstance();
