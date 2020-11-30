@@ -40,27 +40,38 @@
 
 package fish.payara.test.containers.tst.security;
 
+import fish.payara.test.containers.tools.container.AsadminCommandExecutor;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;
 import fish.payara.test.containers.tools.env.DockerEnvironment;
 import fish.payara.test.containers.tools.env.TestConfiguration;
 import fish.payara.test.containers.tools.junit.DockerITestExtension;
+import fish.payara.test.containers.tools.junit.WaitForExecutable;
 import fish.payara.test.containers.tools.rs.RestClientCache;
-import java.io.File;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.utility.MountableFile;
 
+import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_ADMIN_PORT;
+import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_HTTPS_PORT;
 import static fish.payara.test.containers.tools.container.TestablePayaraPort.DAS_HTTP_PORT;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -78,87 +89,143 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // PAYARA-3515
 @ExtendWith(DockerITestExtension.class)
 public class MetricsSecurityITest {
-
     private static final Logger LOG = LoggerFactory.getLogger(MetricsSecurityITest.class);
 
+    private static final String USER_NAME = "test";
+    // must be same as in passwordfile-user.txt
+    private static final String USER_PASSWORD = "admin123";
     private static final TestConfiguration TEST_CFG = TestConfiguration.getInstance();
-    private static final RestClientCache RS_CLIENTS = new RestClientCache();
+    private static final RestClientCache RS_CLIENTS = new RestClientCache(createSslContext());
 
     private static PayaraServerContainer payara;
 
     @BeforeAll
-    public static void createArtifacts() throws Exception {
+    public static void backupOfOriginalDomain() throws Exception {
         payara = DockerEnvironment.getInstance().getPayaraContainer();
-        // FIXME backup
+        payara.asLocalAdmin("stop-domain", TEST_CFG.getPayaraDomainName());
+        payara.asLocalAdmin("backup-domain", TEST_CFG.getPayaraDomainName());
     }
 
 
-    @BeforeEach
-    public void initDomain() throws Exception {
-    }
-
-
-    @AfterEach
-    public void resetChanges() throws Exception {
-        RS_CLIENTS.close();
+    private static SSLContext createSslContext() {
+        try {
+            final SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+            sslContext.init(null, new TrustManager[]{new NaiveTrustManager()}, new SecureRandom());
+            return sslContext;
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new IllegalStateException("Could not initialize SSL context.", e);
+        }
     }
 
 
     @AfterAll
-    public static void close() throws Exception {
-        // FIXME restore and start
-        payara.asLocalAdmin("restart-domain", TEST_CFG.getPayaraDomainName());
+    public static void cleanupAfterTest() throws Exception {
+        RS_CLIENTS.close();
+        payara.asLocalAdmin("stop-domain", TEST_CFG.getPayaraDomainName());
+        payara.asLocalAdmin("restore-domain", TEST_CFG.getPayaraDomainName());
+        payara.asLocalAdmin("start-domain", TEST_CFG.getPayaraDomainName());
     }
 
 
+    // FIXME: assertions for all commands!
     @Test
     public void testProtectedMetrics() throws Throwable {
-        final File destination = new File(payara.getPayaraFileStructureInDocker().getDomainConfigDirectory(),
-            "default-web.xml");
-        payara.copyFileToContainer(MountableFile.forClasspathResource("realm/" + destination.getName()),
-            destination.getAbsolutePath());
-        payara.asLocalAdmin("restart-domain", TEST_CFG.getPayaraDomainName());
-
-        payara.asAdmin("create-virtual-server", "--property", "authRealm=admin-realm", "--hosts", "localhost",
-            "--networklisteners", "http-listener-1", "my-server");
+        payara.asLocalAdmin("start-domain", TEST_CFG.getPayaraDomainName());
         payara.asAdmin("set", "configs.config.server-config.microprofile-metrics-configuration.enabled=true");
+        payara.asAdmin("set", "configs.config.server-config.microprofile-metrics-configuration.security-enabled=true");
 
-        payara.asLocalAdmin("restart-domain", TEST_CFG.getPayaraDomainName());
+        new AsadminCommandExecutor(payara, "--terse", "--user", "admin",
+            "--passwordfile=" + payara.getConfiguration().getPasswordFileForUserInDocker().getAbsolutePath())
+                .exec("create-file-user", "--groups=microprofile", "--target=server-config", "--authrealmname=file",
+                    USER_NAME);
 
-        final ExecResult result1 = payara.execInContainer("curl", "-s", "-G", "http://localhost:" + DAS_HTTP_PORT + "/");
-        assertAll(
+        final ExecResult resultA = payara.execInContainer("curl", "-s", "-G", "--insecure", "--verbose",
+            "https://localhost:" + DAS_ADMIN_PORT + "/");
+        assertAll("resultA.stdErr: \n" + resultA.getStderr(),
+            () -> assertThat("resultA.exitCode", resultA.getExitCode(), equalTo(0)),
+            () -> assertThat("resultA.stdOut", resultA.getStdout(), containsString("The Admin Console")) //
+        );
+
+        final ExecResult result1 = payara.execInContainer("curl", "-s", "-G", "--verbose",
+            "http://localhost:" + DAS_HTTP_PORT + "/");
+        assertAll("stdErr: \n" + result1.getStderr(),
             () -> assertThat("result1.exitCode", result1.getExitCode(), equalTo(0)),
             () -> assertThat("result1.stdOut", result1.getStdout(), containsString("The document root folder"
                 + " for this server is the docroot subdirectory of this server's domain directory.")) //
         );
 
-        assertAll(this::checkAnonymousRequest, this::checkAuthorizedRequest);
+        WaitForExecutable.waitFor(() -> assertAll(this::checkAnonymousCurlRequest, this::checkAuthorizedCurlRequest,
+            this::checkAuthorizedJerseyTextRequest, this::checkAuthorizedJerseyJsonRequest), 60000L);
     }
 
 
-    // FIXME: Must end with HTTP 401, but passes and causes Internal Server Error
-    private void checkAnonymousRequest() throws Exception {
-        final ExecResult result = payara.execInContainer("curl", "-s", "-G", //
-//                "-u", TEST_CFG.getPayaraUsername() + ":" + TEST_CFG.getPayaraPassword(),
-                "http://localhost:" + DAS_HTTP_PORT + "/metrics/base");
-        assertAll(
-            () -> assertThat("result.exitCode", result.getExitCode(), equalTo(0)), //
-            () -> assertThat("result.stdOut", result.getStdout(), containsString("HTTP Status 401 - Unauthorized")) //
+    private void checkAnonymousCurlRequest() throws Exception {
+        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--insecure", "--verbose",
+            "https://localhost:" + DAS_HTTPS_PORT + "/metrics/base");
+        assertAll("anonymous.curl.stdErr: \n" + result.getStderr(),
+            () -> assertThat("anonymous.curl.exitCode", result.getExitCode(), equalTo(0)), //
+            () -> assertThat("anonymous.curl.stdOut", result.getStdout(),
+                containsString("HTTP Status 401 - Unauthorized")) //
+        );
+    }
+
+    private void checkAuthorizedCurlRequest() throws Exception {
+        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--insecure", "--verbose", "--anyauth",
+            "--user", USER_NAME + ":" + USER_PASSWORD, "https://localhost:" + DAS_HTTPS_PORT + "/metrics/base");
+        assertAll("auth.curl.stdErr: \n" + result.getStderr(),
+            () -> assertThat("auth.curl.exitCode", result.getExitCode(), equalTo(0)), //
+            () -> assertThat("auth.curl.stdOut", result.getStdout(), containsString("base_cpu_systemLoadAverage")) //
         );
     }
 
 
-    // FIXME: Internal Server Error - cannot parse content type header; still unsecured.
-    private void checkAuthorizedRequest() throws Exception {
+    private void checkAuthorizedJerseyTextRequest() throws Exception {
+        // default header was a problem for Payara until CUSTCOM-254
+        final String responseBody = doAuthorizedJerseyRequest(null);
+        assertThat("auth.jersey.entity", responseBody, containsString("base_cpu_systemLoadAverage"));
+
+    }
+
+
+    private void checkAuthorizedJerseyJsonRequest() throws Exception {
+        final String responseBody = doAuthorizedJerseyRequest(MediaType.APPLICATION_JSON_TYPE);
+        assertThat("auth.jersey.entity", responseBody, containsString("cpu.systemLoadAverage"));
+    }
+
+
+    private String doAuthorizedJerseyRequest(final MediaType acceptHeader) throws Exception {
         final WebTarget target = RS_CLIENTS
-//            .getAnonymousClient()
-            .getNonPreemptiveClient(true, TEST_CFG.getPayaraUsername(), TEST_CFG.getPayaraPassword())
-            .target(payara.getHttpUrl().toURI()).path("metrics").path("base");
-        try (Response response = target.request().get()) {
-            assertEquals(Status.UNAUTHORIZED, response.getStatusInfo().toEnum(), "response.status");
-            assertTrue(response.hasEntity(), "response.hasEntity");
-            final String stringEntity = response.readEntity(String.class);
-            assertThat("response.text", stringEntity, containsString("HTTP Status 200"));
+            .getNonPreemptiveClient(true, USER_NAME, USER_PASSWORD)
+            .target(payara.getHttpsUrl().toURI()).path("metrics").path("base");
+        final Builder requestBuilder = target.request();
+        if (acceptHeader != null) {
+            requestBuilder.accept(acceptHeader);
+        }
+        try (Response response = requestBuilder.get()) {
+            assertEquals(Status.OK, response.getStatusInfo().toEnum(), "auth.jersey.status");
+            assertTrue(response.hasEntity(), "auth.jersey.hasEntity");
+            return response.readEntity(String.class);
+        }
+    }
+
+
+    private static final class NaiveTrustManager implements X509TrustManager {
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+        }
+
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] xcs, String string) {
+            // accept everything
+        }
+
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] xcs, String string) {
+            // accept everything
         }
     }
 }

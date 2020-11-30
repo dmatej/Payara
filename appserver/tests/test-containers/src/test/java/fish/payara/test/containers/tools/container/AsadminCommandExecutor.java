@@ -68,9 +68,9 @@ public class AsadminCommandExecutor {
      * @param container
      * @param defaultArgs - arguments, which will be added before the command name.
      */
-    public AsadminCommandExecutor(final PayaraServerContainer container, final String[] defaultArgs) {
+    public AsadminCommandExecutor(final PayaraServerContainer container, final String... defaultArgs) {
         this.container = container;
-        this.defaultArgs = defaultArgs;
+        this.defaultArgs = defaultArgs == null ? new String[0] : defaultArgs;
     }
 
 

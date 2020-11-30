@@ -47,6 +47,7 @@ import java.nio.file.Paths;
  *
  * @author David Matějček
  */
+// FIXME: extract paths and make them accessible from the container (but configuration not, because it cannot be changed on running container)
 public class PayaraServerContainerConfiguration extends JavaContainerConfiguration {
 
     private static final String JACOCO_DOCKER_PAYARA_SERVER_EXEC_FILE = "jacoco-docker-payara-server.exec";
@@ -220,6 +221,14 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
      */
     public File getPasswordFileInDocker() {
         return new File(getMainApplicationDirectoryInDocker(), "passwordfile.txt");
+    }
+
+
+    /**
+     * @return absolute path to the passwordfile-user.txt in docker container
+     */
+    public File getPasswordFileForUserInDocker() {
+        return new File(getMainApplicationDirectoryInDocker(), "passwordfile-user.txt");
     }
 
 

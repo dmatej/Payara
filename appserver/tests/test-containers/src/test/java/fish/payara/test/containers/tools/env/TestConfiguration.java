@@ -61,8 +61,6 @@ public final class TestConfiguration {
     private final String payaraDomainName;
 
     private final String payaraHost;
-    private final String payaraUsername;
-    private final String payaraPassword;
     private final int jerseyClientConnectionTimeout;
     private final int jerseyClientReadTimeout;
 
@@ -91,8 +89,6 @@ public final class TestConfiguration {
         this.payaraDirectory = new File(properties.getFile("docker.payara.sharedDirectory"),
             properties.getString("docker.payara.payaraDirectoryName"));
         this.payaraHost = properties.getString("docker.payara.host");
-        this.payaraUsername = properties.getString("docker.payara.username");
-        this.payaraPassword = properties.getString("docker.payara.password");
         this.payaraDockerImageTag = properties.getString("docker.payara.tag", "latest");
 
         this.jerseyClientConnectionTimeout = properties.getInt("benchmark.client.timeoutInMillis.connect", 0);
@@ -113,22 +109,6 @@ public final class TestConfiguration {
      */
     public String getPayaraHost() {
         return this.payaraHost;
-    }
-
-
-    /**
-     * @return username valid to login into the application in the docker container.
-     */
-    public String getPayaraUsername() {
-        return this.payaraUsername;
-    }
-
-
-    /**
-     * @return password valid to login into the application in the docker container.
-     */
-    public String getPayaraPassword() {
-        return this.payaraPassword;
     }
 
 

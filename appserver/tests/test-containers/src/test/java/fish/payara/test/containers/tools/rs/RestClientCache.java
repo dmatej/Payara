@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- *    Copyright (c) 2019 Payara Foundation and/or its affiliates. All rights reserved.
+ *    Copyright (c) 2019-2020 Payara Foundation and/or its affiliates. All rights reserved.
  *
  *     The contents of this file are subject to the terms of either the GNU
  *     General Public License Version 2 only ("GPL") or the Common Development
@@ -45,6 +45,7 @@ import java.io.Closeable;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.net.ssl.SSLContext;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 
@@ -67,6 +68,7 @@ public class RestClientCache implements Closeable {
     private static final Logger LOG = LoggerFactory.getLogger(RestClientCache.class);
 
     private final ConcurrentHashMap<ClientCacheKey, Client> cache;
+    private final SSLContext sslContext;
 
 
     /**
@@ -74,6 +76,17 @@ public class RestClientCache implements Closeable {
      */
     public RestClientCache() {
         this.cache = new ConcurrentHashMap<>();
+        this.sslContext = null;
+    }
+
+    /**
+     * Initializes cache for {@link Client} instances.
+     *
+     * @param sslContext
+     */
+    public RestClientCache(final SSLContext sslContext) {
+        this.cache = new ConcurrentHashMap<>();
+        this.sslContext = sslContext;
     }
 
 
@@ -129,7 +142,11 @@ public class RestClientCache implements Closeable {
         }
         clientCfg.register(LoggingResponseFilter.class);
         clientCfg.property(ClientProperties.FOLLOW_REDIRECTS, key.followRedirects);
-        return ClientBuilder.newClient(clientCfg);
+        final ClientBuilder builder = ClientBuilder.newBuilder().withConfig(clientCfg);
+        if (this.sslContext != null) {
+            builder.sslContext(this.sslContext);
+        }
+        return builder.build();
     }
 
 

@@ -153,6 +153,8 @@ public class PayaraServerDockerImageManager
             forClasspathResource("server-side/passwordfile-change.txt"));
         files.put(getConfiguration().getPasswordFileInDocker().getAbsolutePath(),
             forClasspathResource("server-side/passwordfile.txt"));
+        files.put(getConfiguration().getPasswordFileForUserInDocker().getAbsolutePath(),
+            forClasspathResource("server-side/passwordfile-user.txt"));
         // we cannot copy file into payara directories before they would be created,
         // so we will separate this action into two steps:
         // 1) share file with the container
