@@ -90,7 +90,7 @@ public class MetricsSecurityITest {
 
     private static final String USER_NAME = "test";
     // must be same as in passwordfile-user.txt
-    private static final String USER_PASSWORD = "admin123";
+    private static final String USER_PASSWORD = "admin";
     private static final String RESP_TEXT_SNIPPET = "cpu_system";
     private static final String RESP_JSON_SNIPPET = "cpu.systemLoadAverage";
 

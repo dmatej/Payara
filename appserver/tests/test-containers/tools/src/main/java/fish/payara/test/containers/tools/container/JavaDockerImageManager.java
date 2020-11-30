@@ -139,6 +139,14 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
 
 
     @Override
+    public void prepareImage(final boolean forceNew) {
+        getConfiguration().getMainApplicationDirectory().mkdirs();
+        getConfiguration().getMainApplicationDirectory().setWritable(true, false);
+        super.prepareImage(forceNew);
+    }
+
+
+    @Override
     public String getInstallCommand() {
         return "true" //
             + " && apt-get update" //

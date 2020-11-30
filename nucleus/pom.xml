@@ -262,18 +262,25 @@
                     <configuration>
                         <trimStackTrace>false</trimStackTrace>
                         <useSystemClassLoader>true</useSystemClassLoader>
+                        <systemProperties>
+                            <java.util.logging.manager>${test.logManager}</java.util.logging.manager>
+                        </systemProperties>
+                        <excludes>
+                           <exclude>**/*ITest.java</exclude>
+                        </excludes>
                     </configuration>
                 </plugin>
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven.failsafe.plugin.version}</version>
                     <configuration>
                         <encoding>${project.build.sourceEncoding}</encoding>
                         <useSystemClassLoader>false</useSystemClassLoader>
-                        <failIfNoTests>true</failIfNoTests>
                         <trimStackTrace>false</trimStackTrace>
                         <verbose>true</verbose>
+                        <includes>
+                           <include>**/*ITest.java</include>
+                        </includes>
                     </configuration>
                     <executions>
                         <execution>
@@ -679,6 +686,10 @@ Parent is ${project.parent}</echo>
                     <dropVersionComponent>qualifier</dropVersionComponent>
                     <versionPropertyName>project.osgi.version</versionPropertyName>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
             </plugin>
 
             <plugin>

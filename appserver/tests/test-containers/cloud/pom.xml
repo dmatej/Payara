@@ -168,7 +168,6 @@
             <testResource>
                 <directory>src/test/resources</directory>
                 <includes>
-                    <include>manual.properties</include>
                     <include>test.properties</include>
                 </includes>
                 <filtering>true</filtering>
@@ -191,35 +190,9 @@
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <useSystemClassLoader>false</useSystemClassLoader>
                     <skipTests>true</skipTests>
                 </configuration>
             </plugin>
-            <plugin>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <configuration>
-                    <argLine>${failsafe.argLine}</argLine>
-                    <includes>
-                        <include>**/*ITest.java</include>
-                        <include>**/*PTest.java</include>
-                    </includes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>integration-test</id>
-                        <goals>
-                            <goal>integration-test</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>verify</id>
-                        <goals>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <artifactId>maven-install-plugin</artifactId>
                 <configuration>

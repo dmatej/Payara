@@ -110,9 +110,6 @@ public class PayaraServerDockerImageManager
         command.append(" && ls -la ").append(new File(cfg.getPayaraDomainDirectoryInDocker(), "config"));
 
         final File asadmin = cfg.getAsadminFileInDocker();
-        command.append(" && ").append(asadmin) //
-            .append(" --user admin --passwordfile ").append(cfg.getPasswordFileForChangeInDocker()) //
-            .append(" change-admin-password").append(" --domain_name=").append(cfg.getPayaraDomainName());
         command.append(" && ").append(asadmin).append(" start-domain ").append(cfg.getPayaraDomainName());
         command.append(" && echo '" + PAYARA_DOCKER_IMAGE_STARTED + "'");
         command.append(" && tail -F ").append(cfg.getPayaraServerLogInDocker()); //
@@ -142,8 +139,6 @@ public class PayaraServerDockerImageManager
     @Override
     protected Map<String, MountableFile> getFilesToCopy() {
         final Map<String, MountableFile> files = super.getFilesToCopy();
-        addFileToCopyIfExists("server-side/passwordfile-change.txt", //
-            getConfiguration().getPasswordFileForChangeInDocker(), 0777, files);
         addFileToCopyIfExists("server-side/passwordfile.txt", //
             getConfiguration().getPasswordFileInDocker(), 0777, files);
         addFileToCopyIfExists("server-side/passwordfile-user.txt", //

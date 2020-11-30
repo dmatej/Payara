@@ -150,9 +150,6 @@ public class DockerEnvironment implements AutoCloseable {
         this.cfg = cfg;
         this.network = Network.newNetwork();
 
-        cfg.getPayaraServerConfiguration().getMainApplicationDirectory().mkdirs();
-        cfg.getPayaraServerConfiguration().getMainApplicationDirectory().setWritable(true, false);
-
         final List<CompletableFuture<Void>> parallelFutures = new ArrayList<>();
         // port of the docker service on the host, some tests use it.
         Testcontainers.exposeHostPorts(cfg.getPayaraServerConfiguration().getDockerHostAndPort().getPort());

@@ -114,6 +114,13 @@ public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extend
     }
 
 
+    /**
+     * Returns URL usable from the host (test)
+     *
+     * @param protocol
+     * @param internalPort internal port, will be transformed using {@link #getMappedPort(int)}
+     * @return protocol://ip:port/, ie. http://127.0.0.1:12345/
+     */
     protected URL getExternalUrl(final String protocol, final TestablePayaraPort internalPort) {
         try {
             return new URL(protocol, getContainerIpAddress(), getMappedPort(internalPort.getPort()), "/");

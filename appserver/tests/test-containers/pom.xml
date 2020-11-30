@@ -248,7 +248,6 @@
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
-                        <useSystemClassLoader>false</useSystemClassLoader>
                         <excludes>
                             <exclude>**/*ITest.java</exclude>
                             <exclude>**/*PTest.java</exclude>
@@ -258,31 +257,8 @@
                 <plugin>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
-                        <useSystemClassLoader>false</useSystemClassLoader>
-                        <failIfNoTests>true</failIfNoTests>
-                        <trimStackTrace>false</trimStackTrace>
-                        <verbose>true</verbose>
-                        <encoding>${project.build.sourceEncoding}</encoding>
                         <argLine>${failsafe.argLine}</argLine>
-                        <includes>
-                            <include>**/*ITest.java</include>
-                            <include>**/*PTest.java</include>
-                        </includes>
                     </configuration>
-                    <executions>
-                        <execution>
-                            <id>integration-test</id>
-                            <goals>
-                                <goal>integration-test</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>verify</id>
-                            <goals>
-                                <goal>verify</goal>
-                            </goals>
-                        </execution>
-                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>

@@ -55,7 +55,7 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
     private String payaraDirectoryName;
     private String payaraDomainName;
     private NetworkTarget dockerHostAndPort;
-    private boolean newLoggingImplementation;
+    private boolean newLoggingImplementation = true;
 
     /**
      * Name of the root payara directory
@@ -213,14 +213,6 @@ public class PayaraServerContainerConfiguration extends JavaContainerConfigurati
      */
     public File getPasswordFileForUserInDocker() {
         return new File(getMainApplicationDirectoryInDocker(), "passwordfile-user.txt");
-    }
-
-
-    /**
-     * @return absolute path to the passwordfile used to change the default empty password
-     */
-    public File getPasswordFileForChangeInDocker() {
-        return new File(getMainApplicationDirectoryInDocker(), "passwordfile-change.txt");
     }
 
 
