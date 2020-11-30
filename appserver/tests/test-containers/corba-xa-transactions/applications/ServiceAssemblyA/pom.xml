@@ -5,7 +5,7 @@
     <parent>
         <artifactId>test-containers-corba-xa-transactions-app</artifactId>
         <groupId>fish.payara.server.internal.tests.corba-xa-transactions-app</groupId>
-        <version>5.202-SNAPSHOT</version>
+        <version>5.2020.5-SNAPSHOT</version>
     </parent>
     <artifactId>ServiceAssemblyA</artifactId>
     <packaging>ear</packaging>

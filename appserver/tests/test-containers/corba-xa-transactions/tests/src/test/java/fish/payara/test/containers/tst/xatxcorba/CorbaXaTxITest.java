@@ -211,7 +211,7 @@ public class CorbaXaTxITest {
         cfg.getMainApplicationDirectory().mkdirs();
         final PayaraServerContainer container = new PayaraServerContainer(
             // FIXME: properties.
-            "payara-server-full-5-202-snapshot-for-payara-tests:latest", cfg);
+            "payara/payara4tests:5.2020.5-SNAPSHOT", cfg);
         container.withFileSystemBind( //
                 cfg.getMainApplicationDirectory().getAbsolutePath(),
                 cfg.getMainApplicationDirectoryInDocker().getAbsolutePath(), BindMode.READ_WRITE);
