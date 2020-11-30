@@ -104,7 +104,6 @@ public class DockerNodesITest {
     private static Set<DockerContainerId> containersToPreserve;
 
 
-
     /**
      * Test uses local docker service. We don't want to remove docker containers we did not create.
      *
@@ -150,9 +149,7 @@ public class DockerNodesITest {
         final String startResponse = domain.docker("containers/" + containerId + "/start", "");
         assertThat("curl start container output", startResponse, stringContainsInOrder("HTTP/1.1 204 No Content"));
 
-        // FIXME: took 2 seconds just 2 iterations on my computer.
-        // asadmin is so slow (I know about unsuccessful redundant classloading, but it is probably not the cause)
-        // needed time is very unstable - 2-90 seconds (hazelcast vs. DNS heuristic?)
+        // FIXME: required time is very unstable - 2-100 seconds (hazelcast issue?)
         final Executable listRunningInstance = getListInstanceActionToWaitFor(domain, INSTANCE_STATUS_RUNNING);
         waitFor(listRunningInstance, 3 * 60 * 1000L);
 
