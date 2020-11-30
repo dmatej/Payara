@@ -15,5 +15,7 @@ RUN true \
     && ${PAYARA_DIR}/bin/asadmin --user=${ADMIN_USER} --passwordfile=${PASSWORD_FILE} create-domain --keytooloptions CN=localhost ${DOMAIN_NAME} \
     && ${PAYARA_DIR}/bin/asadmin start-domain ${DOMAIN_NAME} \
     && ${PAYARA_DIR}/bin/asadmin --user=${ADMIN_USER} --passwordfile=${PASSWORD_FILE} enable-secure-admin \
+    && ${PAYARA_DIR}/bin/asadmin --user=${ADMIN_USER} --passwordfile=${PASSWORD_FILE} create-jvm-options \
+      --target default-config '-Xss${ENV=MEM_XSS}:\-Dhazelcast.discovery.enabled=false)' \
     && ${PAYARA_DIR}/bin/asadmin stop-domain ${DOMAIN_NAME} \
     && true
