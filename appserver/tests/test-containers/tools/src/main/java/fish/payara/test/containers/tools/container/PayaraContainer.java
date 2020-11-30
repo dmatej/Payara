@@ -53,7 +53,7 @@ import javax.ws.rs.client.WebTarget;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
+import org.testcontainers.containers.GenericContainer;
 
 /**
  * Payara implementation started as docker container.
@@ -61,7 +61,7 @@ import org.testcontainers.containers.FixedHostPortGenericContainer;
  * @param <SELF>
  * @author David Matějček
  */
-public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extends FixedHostPortGenericContainer<SELF> {
+public abstract class PayaraContainer<SELF extends PayaraContainer<SELF>> extends GenericContainer<SELF> {
 
     private static final Logger LOG = LoggerFactory.getLogger(PayaraContainer.class);
     private final PayaraServerContainerConfiguration configuration;

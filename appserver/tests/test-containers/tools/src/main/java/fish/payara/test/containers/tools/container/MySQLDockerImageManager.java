@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * MySQL image manager. Prepares and starts the container for tests.
@@ -43,7 +44,9 @@ public class MySQLDockerImageManager extends DockerImageManager {
     @SuppressWarnings("resource") // implements Closeable
     public MySQLContainer<?> start() {
         LOG.debug("Creating and starting container from image {} ...", getNameOfPreparedImage());
-        final MySQLContainer<?> container = new MySQLContainer<>(getNameOfPreparedImage())
+        final DockerImageName imageName = DockerImageName.parse(getNameOfPreparedImage())
+            .asCompatibleSubstituteFor(MySQLContainer.NAME);
+        final MySQLContainer<?> container = new MySQLContainer<>(imageName)
             .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("D-MYSQL"))) //
             // FIXME: move to the configuration!
             .withDatabaseName("testdb") //

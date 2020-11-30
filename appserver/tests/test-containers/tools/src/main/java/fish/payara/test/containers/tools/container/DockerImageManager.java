@@ -40,12 +40,8 @@
 package fish.payara.test.containers.tools.container;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.exception.DockerClientException;
-
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
@@ -166,7 +162,7 @@ public abstract class DockerImageManager {
             final String result = image.get();
             LOG.info("Found image: {}", result);
             return image;
-        } catch (final InterruptedException | ExecutionException | DockerClientException e) {
+        } catch (final RuntimeException e) {
             LOG.warn("I could not load the cached image, I will try to download fresh from the network", e);
             return null;
         }
@@ -184,7 +180,7 @@ public abstract class DockerImageManager {
             final String result = image.get();
             LOG.info("Image created: {}", result);
             return;
-        } catch (final InterruptedException | ExecutionException e) {
+        } catch (final RuntimeException e) {
             throw new IllegalStateException("Could not create an image '" + this.imgNamePrepared + "' for tests!", e);
         }
     }

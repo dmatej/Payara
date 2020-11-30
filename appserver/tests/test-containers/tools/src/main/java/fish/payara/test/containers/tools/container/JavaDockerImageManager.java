@@ -50,7 +50,6 @@ import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -68,7 +67,7 @@ import static org.testcontainers.utility.MountableFile.forClasspathResource;
  * @param <C> Supported {@link JavaContainerConfiguration} type
  * @author David Matějček
  */
-public abstract class JavaDockerImageManager<T extends FixedHostPortGenericContainer<T>, C extends JavaContainerConfiguration>
+public abstract class JavaDockerImageManager<T extends GenericContainer<T>, C extends JavaContainerConfiguration>
     extends DockerImageManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(JavaDockerImageManager.class);
