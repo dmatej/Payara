@@ -156,7 +156,13 @@ public class JaspicSamAuthenticationITest {
     @Test
     public void testJaspicEnabledApp() throws Throwable {
         payara.asLocalAdmin("create-domain", "--nopassword", DOMAIN_NAME);
-
+        final PayaraServerFiles origPaths = payara.getPayaraFileStructureInDocker();
+        final File srcLoggingProps = new File(origPaths.getDomainConfigDirectory(), "logging.properties");
+        final File tgtLoggingProps = origPaths.getDomainDirectory().getParentFile().toPath()
+            .resolve(Paths.get(DOMAIN_NAME, "config", srcLoggingProps.getName())).toFile();
+        final ExecResult cpResult = payara.execInContainer("cp", srcLoggingProps.getAbsolutePath(),
+            tgtLoggingProps.getAbsolutePath());
+        assertEquals(0, cpResult.getExitCode(), cpResult.getStderr());
         payara.copyFileToContainer(MountableFile.forHostPath(jarFileOnHost.getAbsolutePath()),
             jarFileOnServer.getAbsolutePath());
         payara.copyFileToContainer(MountableFile.forHostPath(warFileOnHost.getAbsolutePath()),
@@ -174,7 +180,8 @@ public class JaspicSamAuthenticationITest {
 
         final URL protectedServletUrl = new URL("http", "localhost", CLUSTERED_INSTANCE_HTTP_PORT.getPort(),
             WAR_ROOT_CTX + "/protected/servlet");
-        final ExecResult protectedServletResp0 = payara.execInContainer("curl", "-s", "-G", protectedServletUrl.toExternalForm());
+        final ExecResult protectedServletResp0 = payara.execInContainer("curl", "-s", "-G", "--http1.1",
+            protectedServletUrl.toExternalForm());
         assertThat("First response before deployment should be HTTP 404", protectedServletResp0.getStdout(),
             containsString("HTTP Status 404 - Not Found"));
 
@@ -182,7 +189,8 @@ public class JaspicSamAuthenticationITest {
             warFileOnServer.getAbsolutePath());
 
         Thread.sleep(5000L);
-        final ExecResult protectedServletResp = payara.execInContainer("curl", "-s", "-G", protectedServletUrl.toExternalForm());
+        final ExecResult protectedServletResp = payara.execInContainer("curl", "-s", "-G", "--http1.1",
+            protectedServletUrl.toExternalForm());
         assertAll( //
             () -> assertEquals(0, protectedServletResp.getExitCode(), "Second: exit code"),
             () -> assertThat(

@@ -146,7 +146,7 @@ public class MetricsSecurityITest {
             () -> assertThat("resultA.stdOut", resultA.getStdout(), containsString("The Admin Console")) //
         );
 
-        final ExecResult result1 = payara.execInContainer("curl", "-s", "-G", "--verbose",
+        final ExecResult result1 = payara.execInContainer("curl", "-s", "-G", "--http1.1", "--verbose",
             "http://localhost:" + DAS_HTTP_PORT + "/");
         assertAll("stdErr: \n" + result1.getStderr(),
             () -> assertThat("result1.exitCode", result1.getExitCode(), equalTo(0)),
@@ -160,7 +160,7 @@ public class MetricsSecurityITest {
 
 
     private void checkAnonymousCurlRequest() throws Exception {
-        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--insecure", "--verbose",
+        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--http1.1", "--insecure", "--verbose",
             "https://localhost:" + DAS_HTTPS_PORT + "/metrics/base");
         assertAll("anonymous.curl.stdErr: \n" + result.getStderr(),
             () -> assertThat("anonymous.curl.exitCode", result.getExitCode(), equalTo(0)), //
@@ -170,7 +170,8 @@ public class MetricsSecurityITest {
     }
 
     private void checkAuthorizedCurlRequest() throws Exception {
-        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--insecure", "--verbose", "--anyauth",
+        final ExecResult result = payara.execInContainer("curl", "-s", "-G", "--http1.1", "--insecure", "--verbose",
+            "--anyauth",
             "--user", USER_NAME + ":" + USER_PASSWORD, "https://localhost:" + DAS_HTTPS_PORT + "/metrics/base");
         assertAll("auth.curl.stdErr: \n" + result.getStderr(),
             () -> assertThat("auth.curl.exitCode", result.getExitCode(), equalTo(0)), //
