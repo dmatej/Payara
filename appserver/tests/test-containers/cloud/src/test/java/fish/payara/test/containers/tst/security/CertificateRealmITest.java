@@ -208,7 +208,9 @@ public class CertificateRealmITest {
 
     @AfterAll
     public static void cleanup() {
-        DockerEnvironment.getInstance().getPayaraContainer().undeploy(applicationName);
+        if (applicationName != null) {
+            DockerEnvironment.getInstance().getPayaraContainer().undeploy(applicationName);
+        }
     }
 
 

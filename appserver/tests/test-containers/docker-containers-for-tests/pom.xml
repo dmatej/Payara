@@ -36,6 +36,8 @@
         <dependency>
             <groupId>fish.payara.distributions</groupId>
             <artifactId>payara</artifactId>
+            <!-- Don't remove, allows to override the dependency! -->
+            <version>${docker.payara.version}</version>
             <type>zip</type>
             <scope>provided</scope>
         </dependency>

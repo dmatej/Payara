@@ -36,8 +36,8 @@ package fish.payara.test.containers.tst.nodes;
 
 import com.github.dockerjava.api.model.Network.Ipam;
 import com.github.dockerjava.api.model.Network.Ipam.Config;
+import com.sun.enterprise.server.logging.ODLLogFormatter;
 
-import fish.payara.logging.jul.formatter.ODLLogFormatter;
 import fish.payara.test.containers.tools.container.DasCfg;
 import fish.payara.test.containers.tools.container.PayaraMicroContainer;
 import fish.payara.test.containers.tools.container.PayaraServerContainer;

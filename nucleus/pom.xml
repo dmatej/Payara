@@ -262,9 +262,6 @@
                     <configuration>
                         <trimStackTrace>false</trimStackTrace>
                         <useSystemClassLoader>true</useSystemClassLoader>
-                        <systemProperties>
-                            <java.util.logging.manager>${test.logManager}</java.util.logging.manager>
-                        </systemProperties>
                         <excludes>
                            <exclude>**/*ITest.java</exclude>
                         </excludes>

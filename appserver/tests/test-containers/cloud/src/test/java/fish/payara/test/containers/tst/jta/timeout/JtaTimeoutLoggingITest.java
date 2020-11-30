@@ -66,6 +66,7 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -86,6 +87,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * @author David Matejcek
  */
 @ExtendWith(DockerITestExtension.class)
+@Disabled("Reproduces race condition fixed under CUSTCOM-55; tests correct logging fixed in PAYARA-4197")
 public class JtaTimeoutLoggingITest {
 
     private static final Logger LOG = LoggerFactory.getLogger(JtaTimeoutLoggingITest.class);

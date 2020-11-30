@@ -276,6 +276,7 @@ public abstract class JavaDockerImageManager<T extends FixedHostPortGenericConta
         command.append(" && hostname && netstat -r -n && netstat -ln");
         command.append(" && java -version");
         // useful to have access to the application state after the container is stopped.
+        command.append(" && (rm -rf /host-shared/payara || true)");
         command.append(" && mv /opt/payara/appserver /host-shared/payara");
         command.append(" && ln -s /host-shared/payara /opt/payara/appserver");
 

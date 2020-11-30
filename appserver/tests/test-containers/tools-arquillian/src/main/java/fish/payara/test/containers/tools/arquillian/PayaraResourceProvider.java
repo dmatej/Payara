@@ -67,7 +67,7 @@ public class PayaraResourceProvider implements TestEnricher {
         try {
             return new Object[] {new InitialContext()};
         } catch (NamingException e) {
-            throw new IllegalStateException("BAAAAAD", e);
+            throw new IllegalStateException("Could not resolve method: " + method, e);
         }
     }
 }
