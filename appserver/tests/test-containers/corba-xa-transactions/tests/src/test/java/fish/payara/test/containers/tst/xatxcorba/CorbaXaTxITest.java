@@ -210,8 +210,7 @@ public class CorbaXaTxITest {
         final Logger logger, final int... additionalExposedPorts) {
         cfg.getMainApplicationDirectory().mkdirs();
         final PayaraServerContainer container = new PayaraServerContainer(
-            // FIXME: properties.
-            "payara/payara4tests:5.2020.5-SNAPSHOT", cfg);
+            TEST_CFG.getString("docker.payara.image.base"), cfg);
         container.withFileSystemBind( //
                 cfg.getMainApplicationDirectory().getAbsolutePath(),
                 cfg.getMainApplicationDirectoryInDocker().getAbsolutePath(), BindMode.READ_WRITE);
