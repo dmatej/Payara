@@ -45,8 +45,8 @@
     </security-constraint>
 
     <login-config>
-        <!-- no realm name: use default realm for this auth method -->
         <auth-method>CLIENT-CERT</auth-method>
+        <realm-name>certificate</realm-name>
     </login-config>
 
     <security-role>
