@@ -81,7 +81,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * @author David Matejcek
  * <pre>
- * ./runme-local.sh -Ptest-containers -pl :test-containers -Ddocker.payara.version=4.1.2.191.13-SNAPSHOT -Ddocker.payara.tag=4.1.2.191.13 -Ppayara4 -Dit.test=JaspicSamAuthenticationITest
+ * mvn clean install -Ptest-containers -pl :test-containers -Ddocker.payara.version=4.1.2.191.17 -Ppayara4 -Dit.test=MetricsSecurityITest
  * </pre>
  */
 // PAYARA-3515

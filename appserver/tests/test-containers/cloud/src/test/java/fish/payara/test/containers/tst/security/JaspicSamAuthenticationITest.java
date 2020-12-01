@@ -79,9 +79,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * @author David Matejcek
  * <pre>
- * ./runme-local.sh -Ptest-containers -pl :test-containers -Ddocker.payara.version=4.1.2.191.13-SNAPSHOT -Ddocker.payara.tag=4.1.2.191.13 -Ppayara4 -Dit.test=JaspicSamAuthenticationITest
- * ./runme-local.sh -Ptest-containers -pl :test-containers -Ddocker.payara.version=5.2020.6-SNAPSHOT -Ddocker.payara.tag=5.2020.6-4176 -Dit.test=JaspicSamAuthenticationITest
- * ./runme-local.sh -Ptest-containers -pl :test-containers -Ddocker.payara.version=5.2020.6-SNAPSHOT -Ddocker.payara.tag=5.2020.6-SNAPSHOT -Ddocker.payara.cfg.logging.newImplementation=false -Dit.test=JaspicSamAuthenticationITest
+ * mvn clean install -Ptest-containers -pl :test-containers -Ddocker.payara.version=4.1.2.191.13 -Ppayara4 -Dit.test=JaspicSamAuthenticationITest
+ * mvn clean install -Ptest-containers -pl :test-containers -Ddocker.payara.version=5.2020.8-SNAPSHOT -Ddocker.payara.tag=5.2020.6-4176 -Dit.test=JaspicSamAuthenticationITest
+ * mvn clean install -Ptest-containers -pl :test-containers -Ddocker.payara.version=5.2020.8-SNAPSHOT -Ddocker.payara.cfg.logging.newImplementation=false -Dit.test=JaspicSamAuthenticationITest
  * </pre>
  */
 // CUSTCOM-133
