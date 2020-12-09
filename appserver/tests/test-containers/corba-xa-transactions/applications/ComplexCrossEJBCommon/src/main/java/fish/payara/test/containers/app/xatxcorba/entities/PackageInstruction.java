@@ -25,6 +25,6 @@ public class PackageInstruction implements Serializable{
 
     @Override
     public String toString() {
-        return "PackageInstruction{" + "signature=" + signature + ", contentDetails=" + contentDetails + '}';
+        return "PackageInstruction{signature=" + signature + ", contentDetails=" + contentDetails + '}';
     }
 }
