@@ -43,13 +43,13 @@
     <parent>
         <groupId>fish.payara.server.internal.payara-appserver-modules</groupId>
         <artifactId>rest-monitoring-parent</artifactId>
-        <version>5.2022.5</version>
+        <version>5.2026.1-SNAPSHOT</version>
     </parent>
     
     <artifactId>rest-monitoring-war</artifactId>
     <packaging>war</packaging>
     <name>Rest Monitoring War</name>
-    <version>1.0.0-Beta</version>
+    <version>5.2026.1-SNAPSHOT</version>
     
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
